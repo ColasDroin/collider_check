@@ -1,0 +1,49 @@
+Tune and chromaticity
+Qx_b1 = 62.3160, Qy_b1 = 60.3210, dQx_b1 = 14.9960, dQy_b1 = 14.9983
+
+
+Linear coupling
+C- b1 = 0.0000, C- b2 = 0.0000
+Momentum compaction factor
+alpha_p b1 = 0.0003, alpha_p b2 = 0.0003
+
+
+Twiss observables
+IP1
+Beam 1:   name           s             x       px             y            py     betx      bety        dx        dy
+0  ip1  19994.1624 -9.058370e-08  0.00025 -1.163241e-08  2.685045e-07  0.17915  0.075395 -0.019437 -0.002628
+Beam 2:   name          s             x       px             y            py      betx      bety        dx        dy
+0  ip1  6664.7208  1.623161e-10 -0.00025  7.545385e-09 -6.355400e-08  0.178035  0.074695 -0.000468  0.002809
+
+IP2
+Beam 1:   name             s         x            px             y      py      betx      bety        dx        dy
+0  ip2  23326.598984 -0.000146  2.239214e-07 -8.548148e-08 -0.0001  9.983039  9.718283 -0.100345 -0.019249
+Beam 2:   name            s         x            px             y      py       betx       bety       dx        dy
+0  ip2  3332.436584 -0.000145 -2.940925e-07  5.487894e-09 -0.0001  10.222876  10.111284  0.00264  0.002009
+
+IP5
+Beam 1:   name            s             x            px             y       py      betx      bety        dx        dy
+0  ip5  6664.568433  6.976928e-08  1.334417e-07 -2.479720e-08  0.00025  0.073345  0.182693  0.015325 -0.005196
+Beam 2:   name             s             x            px             y       py      betx      bety        dx        dy
+0  ip5  19994.010033  1.400494e-09  2.815446e-08  1.480072e-08  0.00025  0.075824  0.180974  0.000286  0.006162
+
+IP8
+Beam 1:   name             s         x        px         y        py      betx      bety        dx       dy
+0  ip8  16650.658184 -0.000018  0.000135  0.000014  0.000172  1.475157  1.485606 -0.067015 -0.00767
+Beam 2:   name             s         x        px         y        py      betx      bety        dx        dy
+0  ip8  10008.377384 -0.000017 -0.000135 -0.000014  0.000172  1.516136  1.508731  0.001108 -0.003439
+
+
+
+Separation knobs
+sep8h = -0.0172, sep8v = 0.0137, sep2 = 0.1452
+
+
+Normalized separation
+sep1 = 0.0434, sep2 = 0.0004, sep5 = 0.0428, sep8 = 0.1320
+
+
+Luminosity
+lumi1 = 3.2623e+34, lumi2 = 1.1798e+30, lumi5 = 3.2623e+34, lumi8 = 1.9968e+33
+
+

@@ -154,9 +154,9 @@ class TwissCheck:
             sep = xing * np.sqrt(beta/self.nemitt_x)
         elif IP == 2:
             # ! Should I take py?
-            xing = self.tw_b1.rows[f"ip{IP}"].cols["py"].to_pandas().to_numpy().squeeze()[1]
-            beta = self.tw_b1.rows[f"ip{IP}"].cols["betx"].to_pandas().to_numpy().squeeze()[1]
-            sep = xing * np.sqrt(beta/self.nemitt_y)
+            xing = self.tw_b1.rows[f"ip{IP}"].cols["px"].to_pandas().to_numpy().squeeze()[1]
+            beta = self.tw_b1.rows[f"ip{IP}"].cols["bety"].to_pandas().to_numpy().squeeze()[1]
+            sep = xing * np.sqrt(beta/self.nemitt_x)
         elif IP == 5:
             xing = self.tw_b1.rows[f"ip{IP}"].cols["py"].to_pandas().to_numpy().squeeze()[1]
             beta = self.tw_b1.rows[f"ip{IP}"].cols["betx"].to_pandas().to_numpy().squeeze()[1]
@@ -176,6 +176,8 @@ class TwissCheck:
         str_file += "Tune and chromaticity\n"
         str_file += f"Qx_b1 = {qx_b1:.4f}, Qy_b1 = {qy_b1:.4f}, dQx_b1 = {dqx_b1:.4f}, dQy_b1 = {dqy_b1:.4f}\n"
         
+        str_file += "\n\n"
+        
         # Check linear coupling
         c_minus_b1, c_minus_b2 = self.return_linear_coupling()
         str_file += "Linear coupling\n"
@@ -186,10 +188,26 @@ class TwissCheck:
         str_file += "Momentum compaction factor\n"
         str_file += f"alpha_p b1 = {alpha_p_b1:.4f}, alpha_p b2 = {alpha_p_b2:.4f}\n"
         
+        str_file += "\n\n"
+        
+        # Check twiss observables at all IPs
+        str_file += "Twiss observables\n"
+        for ip in [1,2,5,8]:
+            tw_b1 = self.return_twiss_at_ip(beam = 1, ip = ip)
+            tw_b2 = self.return_twiss_at_ip(beam = 2, ip = ip)
+            str_file += f"IP{ip}\n"
+            str_file += f"Beam 1: {tw_b1}\n"
+            str_file += f"Beam 2: {tw_b2}\n"
+            str_file += "\n"
+            
+        str_file += "\n\n"
+        
         # Check separation knobs
         sep8h, sep8v, sep2 = self.return_separation_knobs()
         str_file += "Separation knobs\n"
         str_file += f"sep8h = {sep8h:.4f}, sep8v = {sep8v:.4f}, sep2 = {sep2:.4f}\n"
+        
+        str_file += "\n\n"
         
         # Check normalized separation
         sep1 = self.return_normalized_separation(IP = 1)
@@ -199,31 +217,18 @@ class TwissCheck:
         str_file += "Normalized separation\n"
         str_file += f"sep1 = {sep1:.4f}, sep2 = {sep2:.4f}, sep5 = {sep5:.4f}, sep8 = {sep8:.4f}\n"
         
-        # Check number of collisions
-        n_col1 = self.return_number_of_collisions(IP = 1)
-        n_col2 = self.return_number_of_collisions(IP = 2)
-        n_col5 = self.return_number_of_collisions(IP = 5)
-        n_col8 = self.return_number_of_collisions(IP = 8)
-        str_file += "Number of collisions\n"
-        str_file += f"n_col1 = {n_col1:.4f}, n_col2 = {n_col2:.4f}, n_col5 = {n_col5:.4f}, n_col8 = {n_col8:.4f}\n"
-        
+        str_file += "\n\n"
+               
         # Check luminosity
         lumi1 = self.return_luminosity(IP = 1)
         lumi2 = self.return_luminosity(IP = 2)
         lumi5 = self.return_luminosity(IP = 5)
         lumi8 = self.return_luminosity(IP = 8)
         str_file += "Luminosity\n"
-        str_file += f"lumi1 = {lumi1:.4f}, lumi2 = {lumi2:.4f}, lumi5 = {lumi5:.4f}, lumi8 = {lumi8:.4f}\n"
+        str_file += f"IP1 = {lumi1:.4e}, IP2 = {lumi2:.4e}, IP5 = {lumi5:.4e}, IP8 = {lumi8:.4e}\n"
         
-        # Check twiss observables at all IPs
-        str_file += "Twiss observables\n"
-        for ip in [1,2,5,8]:
-            tw_b1 = self.return_twiss_at_ip(beam = 1, ip = ip)
-            tw_b2 = self.return_twiss_at_ip(beam = 2, ip = ip)
-            str_file += f"IP{ip}\n"
-            str_file += f"b1: {tw_b1}\n"
-            str_file += f"b2: {tw_b2}\n"
-            
+        str_file += "\n\n"
+        
         # Write to file
         with open(path_output, 'w') as fid:
             fid.write(str_file)
