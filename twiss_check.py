@@ -253,14 +253,15 @@ class BuildCollider:
         # )
         return collider
 
-    def dump_collider(self):
+    def dump_collider(self, prefix=None, suffix="collider.json"):
         """Dumps the collider to a json file."""
         path_collider = (
             self.path_configuration.split("/scans/")[1]
             .split("config.yaml")[0]
             .replace("/", "_")[:-5]
-            + "collider.json"
         )
+        if prefix is not None:
+            path_collider = prefix + path_collider + suffix
         self.collider.to_json(path_collider)
         return path_collider
 
