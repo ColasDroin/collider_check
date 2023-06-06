@@ -1,0 +1,53 @@
+Tune and chromaticity
+Qx_b1 = 62.3100, Qy_b1 = 60.3200, dQx_b1 = 5.0048, dQy_b1 = 4.9971
+
+
+Linear coupling
+C- b1 = 0.0001, C- b2 = 0.0001
+Momentum compaction factor
+alpha_p b1 = 0.0003, alpha_p b2 = 0.0003
+
+
+Twiss observables
+IP1 (beam 1)
+name          s             x      px             y           py    betx     bety        dx        dy
+ ip1 19994.1624 -9.068055e-08 0.00025 -1.162762e-08 2.693230e-07 0.17936 0.075382 -0.019463 -0.002628
+IP1 (beam 2)
+name         s            x       px            y            py     betx     bety        dx       dy
+ ip1 6664.7208 1.644118e-10 -0.00025 7.553551e-09 -6.312359e-08 0.178037 0.074691 -0.000468 0.002812
+
+IP2 (beam 1)
+name            s         x           px             y      py     betx     bety        dx        dy
+ ip2 23326.598984 -0.000146 2.240832e-07 -8.616961e-08 -0.0001 9.971379 9.719484 -0.104646 -0.019415
+IP2 (beam 2)
+name           s         x            px            y      py      betx      bety       dx       dy
+ ip2 3332.436584 -0.000145 -2.941206e-07 5.109819e-09 -0.0001 10.218554 10.111734 0.002729 0.001865
+
+IP5 (beam 1)
+name           s            x           px             y      py     betx     bety       dx        dy
+ ip5 6664.568433 7.061092e-08 1.338018e-07 -2.483807e-08 0.00025 0.073289 0.182684 0.015515 -0.005207
+IP5 (beam 2)
+name            s            x           px            y      py    betx     bety       dx       dy
+ ip5 19994.010033 1.470767e-09 2.824803e-08 1.482661e-08 0.00025 0.07583 0.180981 0.000309 0.006173
+
+IP8 (beam 1)
+name            s         x       px        y       py     betx     bety        dx        dy
+ ip8 16650.658184 -0.000017 0.000135 0.000013 0.000172 1.476816 1.485452 -0.067463 -0.007698
+IP8 (beam 2)
+name            s         x        px         y       py     betx     bety       dx        dy
+ ip8 10008.377384 -0.000017 -0.000135 -0.000013 0.000172 1.516454 1.508788 0.001146 -0.003463
+
+
+
+Separation knobs
+sep8h = -0.0167, sep8v = 0.0133, sep2 = 0.1452
+
+
+Normalized separation
+sep1 = 0.0433, sep2 = 0.0004, sep5 = 0.0428, sep8 = 0.1321
+
+
+Luminosity
+IP1 = 3.9298e+34, IP2 = 1.7212e+30, IP5 = 3.9303e+34, IP8 = 2.0000e+33
+
+

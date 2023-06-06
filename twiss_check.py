@@ -542,7 +542,7 @@ if __name__ == "__main__":
     build_collider = BuildCollider(path_config)
 
     # Dump collider
-    path_collider = build_collider.dump_collider()
+    # path_collider = build_collider.dump_collider()
 
     # Do Twiss check
     twiss_check = TwissCheck(
