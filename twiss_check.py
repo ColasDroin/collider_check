@@ -543,8 +543,8 @@ if __name__ == "__main__":
     # Dump collider
     path_collider = build_collider.dump_collider()
 
-    # Reload collider and do Twiss check
-    # path_configuration = "/afs/cern.ch/work/c/cdroin/private/example_DA_study/master_study/scans/opt_flathv_75_1500_withBB_chroma5_1p4_eol_bunch_scan/base_collider/xtrack_0002/config.yaml"
-    # path_filling_scheme = "/afs/cern.ch/work/c/cdroin/private/example_DA_study/master_study/master_jobs/filling_scheme/8b4e_1972b_1960_1178_1886_224bpi_12inj_800ns_bs200ns.json"
-    twiss_check = TwissCheck(path_config, path_collider=path_collider)
+    # Do Twiss check
+    twiss_check = TwissCheck(
+        path_config, collider=build_collider.collider
+    )  # path_collider=path_collider)
     twiss_check.output_check_as_txt()
