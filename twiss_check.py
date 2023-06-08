@@ -3,6 +3,8 @@ import os
 import numpy as np
 import yaml
 import json
+import sys
+import importlib
 import xtrack as xt
 import xmask as xm
 import xmask.lhc as xlhc
@@ -32,7 +34,7 @@ class BuildCollider:
         return configuration
 
     def correct_configuration(self):
-        """Corrects the paths in the configuration file."""
+        """Corrects the paths in the configuration file (from relative to absolute)."""
         self.configuration["config_simulation"]["collider_file"] = (
             self.path_configuration.split("config.yaml")[0]
             + self.configuration["config_simulation"]["collider_file"]
@@ -49,208 +51,34 @@ class BuildCollider:
             )
 
     def load_and_tune_collider(self):
-        """Loads and tune the collider as done in the 2_tune_and_track script."""
+        """Build the collider using the same script as in the initial configuration file."""
 
-        # Get configuration
-        config_sim, config_collider = (
+        # Path of the 2_configure_and_track file
+        path_configure_and_track = self.path_configuration.split("config.yaml")[0]
+        name_module = "2_configure_and_track.py"
+        # Check that the twiss and track file exists
+        if not os.path.exists(path_configure_and_track + name_module):
+            raise ValueError(
+                "The 2_configure_and_track file does not exist in the same directory as the config"
+                " file. No collider can be built ensuring reproducibility."
+            )
+        else:
+            # Add to sys
+            sys.path.insert(1, path_configure_and_track)
+
+            # Import the module
+            configure_and_track = importlib.import_module("2_configure_and_track")
+
+        # Build collider
+        collider, _ = configure_and_track.configure_collider(
             self.configuration["config_simulation"],
             self.configuration["config_collider"],
-        )
-        # ==================================================================================================
-        # --- Rebuild collider
-        # ==================================================================================================
-        # Load collider and build trackers
-        collider = xt.Multiline.from_json(config_sim["collider_file"])
-
-        # ==================================================================================================
-        # --- Install beam-beam
-        # ==================================================================================================
-        config_bb = config_collider["config_beambeam"]
-
-        # Install beam-beam lenses (inactive and not configured)
-        collider.install_beambeam_interactions(
-            clockwise_line="lhcb1",
-            anticlockwise_line="lhcb2",
-            ip_names=["ip1", "ip2", "ip5", "ip8"],
-            delay_at_ips_slots=[0, 891, 0, 2670],
-            num_long_range_encounters_per_side=config_bb["num_long_range_encounters_per_side"],
-            num_slices_head_on=config_bb["num_slices_head_on"],
-            harmonic_number=35640,
-            bunch_spacing_buckets=config_bb["bunch_spacing_buckets"],
-            sigmaz=config_bb["sigma_z"],
+            save_collider=False,
         )
 
-        # ==================================================================================================
-        # ---Knobs and tuning
-        # ==================================================================================================
-        # Build trackers
-        collider.build_trackers()
+        # Remove the folder "correction" which was created during the process
+        os.system("rm -rf correction")
 
-        # Read knobs and tuning settings from config file
-        conf_knobs_and_tuning = config_collider["config_knobs_and_tuning"]
-
-        # Set all knobs (crossing angles, dispersion correction, rf, crab cavities,
-        # experimental magnets, etc.)
-        for kk, vv in conf_knobs_and_tuning["knob_settings"].items():
-            collider.vars[kk] = vv
-
-        # Tunings
-        for line_name in ["lhcb1", "lhcb2"]:
-            knob_names = conf_knobs_and_tuning["knob_names"][line_name]
-
-            targets = {
-                "qx": conf_knobs_and_tuning["qx"][line_name],
-                "qy": conf_knobs_and_tuning["qy"][line_name],
-                "dqx": conf_knobs_and_tuning["dqx"][line_name],
-                "dqy": conf_knobs_and_tuning["dqy"][line_name],
-            }
-
-            xm.machine_tuning(
-                line=collider[line_name],
-                enable_closed_orbit_correction=True,
-                enable_linear_coupling_correction=True,
-                enable_tune_correction=True,
-                enable_chromaticity_correction=True,
-                knob_names=knob_names,
-                targets=targets,
-                line_co_ref=collider[line_name + "_co_ref"],
-                co_corr_config=conf_knobs_and_tuning["closed_orbit_correction"][line_name],
-            )
-
-        # ==================================================================================================
-        # --- Compute the number of collisions in the different IPs (used for luminosity leveling)
-        # ==================================================================================================
-
-        # Get the filling scheme path (in json or csv format)
-        filling_scheme_path = config_bb["mask_with_filling_pattern"]["pattern_fname"]
-
-        # Load the filling scheme
-        if filling_scheme_path.endswith(".json"):
-            with open(filling_scheme_path, "r") as fid:
-                filling_scheme = json.load(fid)
-        else:
-            raise ValueError(
-                f"Unknown filling scheme file format: {filling_scheme_path}. It you provided a csv"
-                " file, it should have been automatically convert when running the script"
-                " 001_make_folders.py. Something went wrong."
-            )
-
-        # Extract booleans beam arrays
-        array_b1 = np.array(filling_scheme["beam1"])
-        array_b2 = np.array(filling_scheme["beam2"])
-
-        # Assert that the arrays have the required length, and do the convolution
-        assert len(array_b1) == len(array_b2) == 3564
-        n_collisions_ip1_and_5 = array_b1 @ array_b2
-        n_collisions_ip2 = np.roll(array_b1, -891) @ array_b2
-        n_collisions_ip8 = np.roll(array_b1, -2670) @ array_b2
-
-        # ==================================================================================================
-        # ---Levelling
-        # ==================================================================================================
-        if "config_lumi_leveling" in config_collider and not config_collider["skip_leveling"]:
-            # Read knobs and tuning settings from config file (already updated with the number of collisions)
-            config_lumi_leveling = config_collider["config_lumi_leveling"]
-
-            # Update the number of bunches in the configuration file
-            config_lumi_leveling["ip8"]["num_colliding_bunches"] = int(n_collisions_ip8)
-
-            # Level luminosity
-            xlhc.luminosity_leveling(
-                collider, config_lumi_leveling=config_lumi_leveling, config_beambeam=config_bb
-            )
-
-            # Re-match tunes, and chromaticities
-            for line_name in ["lhcb1", "lhcb2"]:
-                knob_names = conf_knobs_and_tuning["knob_names"][line_name]
-                targets = {
-                    "qx": conf_knobs_and_tuning["qx"][line_name],
-                    "qy": conf_knobs_and_tuning["qy"][line_name],
-                    "dqx": conf_knobs_and_tuning["dqx"][line_name],
-                    "dqy": conf_knobs_and_tuning["dqy"][line_name],
-                }
-                xm.machine_tuning(
-                    line=collider[line_name],
-                    enable_tune_correction=True,
-                    enable_chromaticity_correction=True,
-                    knob_names=knob_names,
-                    targets=targets,
-                )
-
-        else:
-            print(
-                "No leveling is done as no configuration has been provided, or skip_leveling"
-                " is set to True."
-            )
-
-        # ==================================================================================================
-        # --- Add linear coupling and rematch tune and chromaticity
-        # ==================================================================================================
-
-        # Add linear coupling as the target in the tuning of the base collider was 0
-        # (not possible to set it the target to 0.001 for now)
-        # ! This is commented as this affects the tune/chroma too much
-        # ! We need to wait for the possibility to set the linear coupling as a target along with tune/chroma
-        # collider.vars["c_minus_re_b1"] += conf_knobs_and_tuning["delta_cmr"]
-        # collider.vars["c_minus_re_b2"] += conf_knobs_and_tuning["delta_cmr"]
-
-        # Rematch tune and chromaticity
-        for line_name in ["lhcb1", "lhcb2"]:
-            knob_names = conf_knobs_and_tuning["knob_names"][line_name]
-            targets = {
-                "qx": conf_knobs_and_tuning["qx"][line_name],
-                "qy": conf_knobs_and_tuning["qy"][line_name],
-                "dqx": conf_knobs_and_tuning["dqx"][line_name],
-                "dqy": conf_knobs_and_tuning["dqy"][line_name],
-            }
-            xm.machine_tuning(
-                line=collider[line_name],
-                enable_tune_correction=True,
-                enable_chromaticity_correction=True,
-                enable_linear_coupling_correction=False,
-                knob_names=knob_names,
-                targets=targets,
-            )
-
-        # ==================================================================================================
-        # --- Assert that tune, chromaticity and linear coupling are correct before going further
-        # ==================================================================================================
-        for line_name in ["lhcb1", "lhcb2"]:
-            tw = collider[line_name].twiss()
-            assert np.isclose(tw.qx, conf_knobs_and_tuning["qx"][line_name], atol=1e-4), (
-                f"tune_x is not correct for {line_name}. Expected"
-                f" {conf_knobs_and_tuning['qx'][line_name]}, got {tw.qx}"
-            )
-            assert np.isclose(tw.qy, conf_knobs_and_tuning["qy"][line_name], atol=1e-4), (
-                f"tune_y is not correct for {line_name}. Expected"
-                f" {conf_knobs_and_tuning['qy'][line_name]}, got {tw.qy}"
-            )
-            assert np.isclose(
-                tw.dqx,
-                conf_knobs_and_tuning["dqx"][line_name],
-                rtol=1e-2,
-            ), (
-                f"chromaticity_x is not correct for {line_name}. Expected"
-                f" {conf_knobs_and_tuning['dqx'][line_name]}, got {tw.dqx}"
-            )
-            assert np.isclose(
-                tw.dqy,
-                conf_knobs_and_tuning["dqy"][line_name],
-                rtol=1e-2,
-            ), (
-                f"chromaticity_y is not correct for {line_name}. Expected"
-                f" {conf_knobs_and_tuning['dqy'][line_name]}, got {tw.dqy}"
-            )
-        # ! Commented as the linear coupling is not optimized anymore
-        # ! This should be updated when possible
-        # assert np.isclose(
-        #     tw.c_minus,
-        #     conf_knobs_and_tuning["delta_cmr"],
-        #     atol=5e-3,
-        # ), (
-        #     f"linear coupling is not correct for {line_name}. Expected"
-        #     f" {conf_knobs_and_tuning['delta_cmr']}, got {tw.c_minus}"
-        # )
         return collider
 
     def dump_collider(self, prefix=None, suffix="collider.json"):
@@ -283,6 +111,8 @@ class TwissCheck:
         elif collider is not None:
             # We assume the tracker is already built in this case
             self.collider = collider
+        else:
+            raise ValueError("Either a collider or a path to a collider must be provided.")
 
         # Configuration path
         self.path_configuration = path_configuration
@@ -538,7 +368,7 @@ class TwissCheck:
 
 if __name__ == "__main__":
     # Load collider
-    path_config = "/afs/cern.ch/work/c/cdroin/private/example_DA_study/master_study/scans/opt_flathv_75_1500_withBB_chroma5_1p4_eol_bunch_scan/base_collider/xtrack_0001/config.yaml"
+    path_config = "/afs/cern.ch/work/c/cdroin/private/example_DA_study/master_study/scans/opt_flathv_75_1500_withBB_chroma5_1p4_eol_tune_intensity/base_collider/xtrack_0000/config.yaml"
     build_collider = BuildCollider(path_config)
 
     # Dump collider
