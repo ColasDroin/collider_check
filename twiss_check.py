@@ -40,15 +40,16 @@ class BuildCollider:
             + self.configuration["config_simulation"]["collider_file"]
         )
 
-        for lhcb in ["lhcb1", "lhcb2"]:
-            self.configuration["config_collider"]["config_knobs_and_tuning"][
-                "closed_orbit_correction"
-            ][lhcb] = (
-                self.path_configuration.split("config.yaml")[0]
-                + self.configuration["config_collider"]["config_knobs_and_tuning"][
-                    "closed_orbit_correction"
-                ][lhcb]
-            )
+        # ? Correction of the configuration files is not required anymore as they're produced locally
+        # for lhcb in ["lhcb1", "lhcb2"]:
+        #     self.configuration["config_collider"]["config_knobs_and_tuning"][
+        #         "closed_orbit_correction"
+        #     ][lhcb] = (
+        #         self.path_configuration.split("config.yaml")[0]
+        #         + self.configuration["config_collider"]["config_knobs_and_tuning"][
+        #             "closed_orbit_correction"
+        #         ][lhcb]
+        #     )
 
     def load_and_tune_collider(self):
         """Build the collider using the same script as in the initial configuration file."""
@@ -78,6 +79,8 @@ class BuildCollider:
 
         # Remove the folder "correction" which was created during the process
         os.system("rm -rf correction")
+        # Remove other temporary files
+        os.system("rm -rf .__*")
 
         return collider
 
@@ -306,7 +309,10 @@ class TwissCheck:
             f"Qx_b1 = {qx_b1:.4f}, Qy_b1 = {qy_b1:.4f}, dQx_b1 = {dqx_b1:.4f}, dQy_b1 ="
             f" {dqy_b1:.4f}\n"
         )
-
+        str_file += (
+            f"Qx_b2 = {qx_b2:.4f}, Qy_b2 = {qy_b2:.4f}, dQx_b2 = {dqx_b2:.4f}, dQy_b2 ="
+            f" {dqy_b2:.4f}\n"
+        )
         str_file += "\n\n"
 
         # Check linear coupling
