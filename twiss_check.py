@@ -26,7 +26,7 @@ class BuildCollider:
         self.correct_configuration()
 
         # Load and tune collider
-        self.collider, self.d_twiss_before_bb, self.d_twiss = self.load_and_tune_collider()
+        self.collider, self.d_twiss_before_bb, self.d_twiss_after_bb = self.load_and_tune_collider()
 
     def load_configuration(self):
         """Loads the configuration from a yaml file."""
@@ -72,12 +72,12 @@ class BuildCollider:
             configure_and_track = importlib.import_module("2_configure_and_track")
 
         # Build collider
-        collider, _, d_twiss_before_bb, d_twiss = configure_and_track.configure_collider(
+        collider, _, d_twiss_before_bb, d_twiss_after_bb = configure_and_track.configure_collider(
             self.configuration["config_simulation"],
             self.configuration["config_collider"],
             save_collider=False,
             return_twiss_before_bb=True,
-            return_twiss=True,
+            return_twiss_after_bb=True,
         )
 
         # Remove the folder "correction" which was created during the process
@@ -85,7 +85,7 @@ class BuildCollider:
         # Remove other temporary files
         os.system("rm -rf .__*")
 
-        return collider, d_twiss_before_bb, d_twiss
+        return collider, d_twiss_before_bb, d_twiss_after_bb
 
     def dump_collider_and_twiss(self, prefix=None, suffix="collider.json", save_twiss=True):
         """Dumps the collider to a json file."""
@@ -101,7 +101,9 @@ class BuildCollider:
         if save_twiss:
             path_twiss = path_collider.replace(suffix, "twiss.pickle")
             with open(path_twiss, "wb") as fid:
-                pickle.dump({"before_bb": self.d_twiss_before_bb, "after_bb": self.d_twiss}, fid)
+                pickle.dump(
+                    {"before_bb": self.d_twiss_before_bb, "after_bb": self.d_twiss_after_bb}, fid
+                )
             return path_collider, path_twiss
         else:
             return path_collider
