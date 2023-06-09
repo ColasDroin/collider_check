@@ -13,7 +13,7 @@ import xmask.lhc as xlhc
 
 #### Build collider class
 class BuildCollider:
-    def __init__(self, path_configuration):
+    def __init__(self, path_configuration, save_collider_before_bb=True):
         """Initialize the BuildCollider class."""
 
         # Configuration path
@@ -26,7 +26,9 @@ class BuildCollider:
         self.correct_configuration()
 
         # Load and tune collider
-        self.collider, self.d_twiss_before_bb, self.d_twiss_after_bb = self.load_and_tune_collider()
+        self.collider, self.collider_before_bb = self.load_and_tune_collider(
+            save_collider_before_bb
+        )
 
     def load_configuration(self):
         """Loads the configuration from a yaml file."""
@@ -52,7 +54,7 @@ class BuildCollider:
         #         ][lhcb]
         #     )
 
-    def load_and_tune_collider(self):
+    def load_and_tune_collider(self, save_collider_before_bb):
         """Build the collider using the same script as in the initial configuration file."""
 
         # Path of the 2_configure_and_track file
@@ -72,22 +74,30 @@ class BuildCollider:
             configure_and_track = importlib.import_module("2_configure_and_track")
 
         # Build collider
-        collider, _, d_twiss_before_bb, d_twiss_after_bb = configure_and_track.configure_collider(
-            self.configuration["config_simulation"],
-            self.configuration["config_collider"],
-            save_collider=False,
-            return_twiss_before_bb=True,
-            return_twiss_after_bb=True,
-        )
+        if save_collider_before_bb:
+            collider, _, collider_before_bb = configure_and_track.configure_collider(
+                self.configuration["config_simulation"],
+                self.configuration["config_collider"],
+                save_collider=False,
+                return_collider_before_bb=save_collider_before_bb,
+            )
+        else:
+            collider, _ = configure_and_track.configure_collider(
+                self.configuration["config_simulation"],
+                self.configuration["config_collider"],
+                save_collider=False,
+                return_collider_before_bb=save_collider_before_bb,
+            )
+            collider_before_bb = None
 
         # Remove the folder "correction" which was created during the process
         os.system("rm -rf correction")
         # Remove other temporary files
         os.system("rm -rf .__*")
 
-        return collider, d_twiss_before_bb, d_twiss_after_bb
+        return collider, collider_before_bb
 
-    def dump_collider_and_twiss(self, prefix=None, suffix="collider.json", save_twiss=True):
+    def dump_collider(self, prefix=None, suffix="collider.json"):
         """Dumps the collider to a json file."""
         path_collider = (
             self.path_configuration.split("/scans/")[1]
@@ -98,13 +108,10 @@ class BuildCollider:
             path_collider = prefix + path_collider + suffix
         self.collider.to_json(path_collider)
 
-        if save_twiss:
-            path_twiss = path_collider.replace(suffix, "twiss.pickle")
-            with open(path_twiss, "wb") as fid:
-                pickle.dump(
-                    {"before_bb": self.d_twiss_before_bb, "after_bb": self.d_twiss_after_bb}, fid
-                )
-            return path_collider, path_twiss
+        if self.collider_before_bb is not None:
+            path_collider_before_bb = path_collider.replace(".json", "_before_bb.json")
+            self.collider_before_bb.to_json(path_collider_before_bb)
+            return path_collider, path_collider_before_bb
         else:
             return path_collider
 
@@ -114,29 +121,22 @@ class TwissCheck:
     def __init__(
         self,
         path_configuration,
-        path_dic_twiss=None,
         path_collider=None,
         collider=None,
     ):
         """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
         or from a path to a collider."""
 
+        # Check that either a collider or a path_to_collider has been provided
+        if (self.collider is None and self.path_collider is None) or (
+            self.collider is not None and self.path_collider is not None
+        ):
+            raise ValueError("Either a collider, or a path to a collider must be provided.")
+
         # Store the paths and the collider (if existing)
         self.path_configuration = path_configuration
-        self.self.path_dic_twiss = path_dic_twiss
         self.path_collider = path_collider
         self.collider = collider
-
-        # Check that the input is consistent
-        self.check_input()
-
-        # If a path to twiss dictionnary has been provided, load the twiss and survey from dictionnary
-        if self.path_dic_twiss is not None:
-            self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
-                self.load_twiss_and_survey_from_dictionnary()
-            )
-            # Collider is set to None, all functions using the collider will raise an error
-            self.collider = None
 
         # If a path to collider has been provided, or a collider has been provided, load the collider
         if self.path_collider is not None:
@@ -155,50 +155,6 @@ class TwissCheck:
 
         # Load filling scheme
         self.array_b1, self.array_b2 = self.load_filling_scheme_arrays()
-
-    def check_input(self):
-        # Check that either a dictionnar of twiss or a collider/path_to_collider has been provided
-        if self.path_dic_twiss is None and self.collider is None and self.path_collider is None:
-            raise ValueError(
-                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
-                " provided."
-            )
-
-        # Check that only one of the three has been provided
-        if self.path_dic_twiss is not None and self.collider is not None:
-            raise ValueError(
-                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
-                " provided."
-            )
-        if self.path_dic_twiss is not None and self.path_collider is not None:
-            raise ValueError(
-                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
-                " provided."
-            )
-        if self.collider is not None and self.path_collider is not None:
-            raise ValueError(
-                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
-                " provided."
-            )
-
-    def load_twiss_and_survey_from_dictionnary(self):
-        # Load the twiss dictionnary
-        with open(self.path_dic_twiss, "rb") as fid:
-            dic_twiss = pickle.load(fid)
-
-        # Get individual twiss before and after bb
-        tw_b1, df_sv_b1, df_tw_b1 = (
-            dic_twiss["lhcb1"]["twiss"],
-            dic_twiss["lhcb1"]["survey"].to_pandas(),
-            dic_twiss["lhcb1"]["twiss"].to_pandas(),
-        )
-        tw_b2, df_sv_b2, df_tw_b2 = (
-            dic_twiss["lhcb2"]["twiss"],
-            dic_twiss["lhcb2"]["survey"].to_pandas(),
-            dic_twiss["lhcb2"]["twiss"].to_pandas(),
-        )
-
-        return tw_b1, df_sv_b1, df_tw_b1, tw_b2, df_sv_b2, df_tw_b2
 
     def load_collider_from_path(self):
         """Loads the collider from a json file."""
