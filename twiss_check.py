@@ -5,6 +5,7 @@ import yaml
 import json
 import sys
 import importlib
+import pickle
 import xtrack as xt
 import xmask as xm
 import xmask.lhc as xlhc
@@ -25,7 +26,7 @@ class BuildCollider:
         self.correct_configuration()
 
         # Load and tune collider
-        self.collider = self.load_and_tune_collider()
+        self.collider, self.d_twiss_before_bb, self.d_twiss_after_bb = self.load_and_tune_collider()
 
     def load_configuration(self):
         """Loads the configuration from a yaml file."""
@@ -71,10 +72,12 @@ class BuildCollider:
             configure_and_track = importlib.import_module("2_configure_and_track")
 
         # Build collider
-        collider, _ = configure_and_track.configure_collider(
+        collider, _, d_twiss_before_bb, d_twiss_after_bb = configure_and_track.configure_collider(
             self.configuration["config_simulation"],
             self.configuration["config_collider"],
             save_collider=False,
+            return_twiss_before_bb=True,
+            return_twiss_after_bb=True,
         )
 
         # Remove the folder "correction" which was created during the process
@@ -82,9 +85,9 @@ class BuildCollider:
         # Remove other temporary files
         os.system("rm -rf .__*")
 
-        return collider
+        return collider, d_twiss_before_bb, d_twiss_after_bb
 
-    def dump_collider(self, prefix=None, suffix="collider.json"):
+    def dump_collider_and_twiss(self, prefix=None, suffix="collider.json", save_twiss=True):
         """Dumps the collider to a json file."""
         path_collider = (
             self.path_configuration.split("/scans/")[1]
@@ -94,7 +97,16 @@ class BuildCollider:
         if prefix is not None:
             path_collider = prefix + path_collider + suffix
         self.collider.to_json(path_collider)
-        return path_collider
+
+        if save_twiss:
+            path_twiss = path_collider.replace(suffix, "twiss.pickle")
+            with open(path_twiss, "wb") as fid:
+                pickle.dump(
+                    {"before_bb": self.d_twiss_before_bb, "after_bb": self.d_twiss_after_bb}, fid
+                )
+            return path_collider, path_twiss
+        else:
+            return path_collider
 
 
 #### Twiss Check class
@@ -102,11 +114,40 @@ class TwissCheck:
     def __init__(
         self,
         path_configuration,
+        path_dic_twiss = None
         path_collider=None,
         collider=None,
     ):
-        """Initialize the TwissCheck class."""
+        """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
+        or from a path to a collider."""
 
+        # Check that either a dictionnar of twiss or a collider/path_to_collider has been provided
+        if path_dic_twiss is None and collider is None and path_collider is None:
+            raise ValueError("Either a Twiss dictionnary, or a collider, or a path to a collider must be provided.")
+
+        elif path_dic_twiss is not None:
+            # Load the twiss dictionnary
+            with open(path_dic_twiss, "rb") as fid:
+                dic_twiss = pickle.load(fid)
+
+            # Get the twiss before and after beam-beam
+            self.d_twiss_before_bb = dic_twiss["before_bb"]
+            self.d_twiss_after_bb = dic_twiss["after_bb"]
+
+            # Get individual twiss before and after bb
+            self.tw_b1_before_bb, self.df_sv_b1_before_bb, self.df_tw_b1_before_bb = (
+                self.d_twiss_before_bb["lhcb1"]['twiss'],
+                self.d_twiss_before_bb["lhcb1"]['survey'].to_pandas(),
+                self.d_twiss_before_bb["lhcb1"]['twiss'].to_pandas(),
+            )
+            
+            self.tw_b1_after_bb, self.df_sv_b1_after_bb, self.df_tw_b1_after_bb = (
+                self.d_twiss_after_bb["lhcb1"]['twiss'],
+                self.d_twiss_after_bb["lhcb1"]['survey'].to_pandas(),
+                self.d_twiss_after_bb["lhcb1"]['twiss'].to_pandas(),
+            )
+            
+  
         # If a path has been provided, load the collider
         if path_collider is not None:
             self.load_collider_from_path(path_collider)
@@ -159,7 +200,10 @@ class TwissCheck:
         """Returns the collider, along with the corresponding survey and twiss dataframes."""
         if self.collider is not None:
             # Get twiss and survey dataframes for both beams
-            self.tw_b1, self.df_sv_b1, self.df_tw_b1 = (
+            self.tw_b1_after_bb, self.df_sv_b1_after_bb, self.df_tw_b1_after_bb = 
+            
+            
+             = (
                 self.return_survey_and_twiss_dataframes_from_line(beam=1)
             )
             self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
@@ -217,8 +261,9 @@ class TwissCheck:
         else:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
 
-    def return_luminosity(self, IP=1):
-        """Computes and returns the luminosity at the requested IP."""
+    def return_luminosity(self, IP=1, tw_b1=None, tw_b2=None, crab=False):
+        """Computes and returns the luminosity at the requested IP. External twiss (e.g. from before
+        beam-beam) can be provided."""
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
         n_col = self.return_number_of_collisions(IP=IP)
@@ -229,9 +274,9 @@ class TwissCheck:
             nemitt_x=self.nemitt_x,
             nemitt_y=self.nemitt_y,
             sigma_z=self.sigma_z,
-            twiss_b1=self.tw_b1,
-            twiss_b2=self.tw_b2,
-            crab=False,
+            twiss_b1=self.tw_b1_after_bb if tw_b1 is None else tw_b1,
+            twiss_b2=self.tw_b2 if tw_b2 is None else tw_b2,
+            crab=crab,
         )
         return luminosity
 
@@ -239,7 +284,7 @@ class TwissCheck:
         """Returns the twiss parameters, position and angle at the requested IP."""
         if beam == 1:
             return (
-                self.tw_b1.rows[f"ip{ip}"]
+                self.tw_b1_after_bb.rows[f"ip{ip}"]
                 .cols["s", "x", "px", "y", "py", "betx", "bety", "dx", "dy"]
                 .to_pandas()
             )
@@ -255,7 +300,7 @@ class TwissCheck:
     def return_tune_and_chromaticity(self, beam=1):
         """Returns the tune and chromaticity for the requested beam."""
         if beam == 1:
-            return self.tw_b1["qx"], self.tw_b1["dqx"], self.tw_b1["qy"], self.tw_b1["dqy"]
+            return self.tw_b1_after_bb["qx"], self.tw_b1_after_bb["dqx"], self.tw_b1_after_bb["qy"], self.tw_b1_after_bb["dqy"]
         elif beam == 2:
             return self.tw_b2["qx"], self.tw_b2["dqx"], self.tw_b2["qy"], self.tw_b2["dqy"]
         else:
@@ -263,11 +308,11 @@ class TwissCheck:
 
     def return_linear_coupling(self):
         """Returns the linear coupling for the two beams."""
-        return self.tw_b1["c_minus"], self.tw_b2["c_minus"]
+        return self.tw_b1_after_bb["c_minus"], self.tw_b2["c_minus"]
 
     def return_momentum_compaction_factor(self):
         """Returns the momentum compaction factor for the two beams."""
-        return self.tw_b1["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
+        return self.tw_b1_after_bb["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
 
     def return_separation_knobs(self):
         """Returns the separation knobs at IP2 and IP8."""
@@ -280,21 +325,21 @@ class TwissCheck:
     def return_normalized_separation(self, IP):
         """Returns the normalized separation at the requested IP."""
         if IP == 1:
-            xing = float(self.tw_b1.rows[f"ip{IP}"]["px"])
-            beta = float(self.tw_b1.rows[f"ip{IP}"]["bety"])
+            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["px"])
+            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["bety"])
             sep = xing * np.sqrt(beta / self.nemitt_x)
         elif IP == 2:
             # ! Should I take py?
-            xing = float(self.tw_b1.rows[f"ip{IP}"]["px"])
-            beta = float(self.tw_b1.rows[f"ip{IP}"]["bety"])
+            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["px"])
+            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["bety"])
             sep = xing * np.sqrt(beta / self.nemitt_x)
         elif IP == 5:
-            xing = float(self.tw_b1.rows[f"ip{IP}"]["py"])
-            beta = float(self.tw_b1.rows[f"ip{IP}"]["betx"])
+            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["py"])
+            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["betx"])
             sep = xing * np.sqrt(beta / self.nemitt_y)
         elif IP == 8:
-            xing = float(self.tw_b1.rows[f"ip{IP}"]["py"])
-            beta = float(self.tw_b1.rows[f"ip{IP}"]["betx"])
+            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["py"])
+            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["betx"])
             sep = xing * np.sqrt(beta / self.nemitt_y)
         return sep
 
