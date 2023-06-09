@@ -97,7 +97,7 @@ class BuildCollider:
 
         return collider, collider_before_bb
 
-    def dump_collider(self, prefix=None, suffix="collider.json"):
+    def dump_collider(self, prefix=None, suffix="collider.json", dump_before_bb=False):
         """Dumps the collider to a json file."""
         path_collider = (
             self.path_configuration.split("/scans/")[1]
@@ -108,10 +108,12 @@ class BuildCollider:
             path_collider = prefix + path_collider + suffix
         self.collider.to_json(path_collider)
 
-        if self.collider_before_bb is not None:
+        if self.collider_before_bb is not None and dump_before_bb:
             path_collider_before_bb = path_collider.replace(".json", "_before_bb.json")
             self.collider_before_bb.to_json(path_collider_before_bb)
             return path_collider, path_collider_before_bb
+        elif self.collider_before_bb is None and dump_before_bb:
+            raise ValueError("No collider before beam-beam has been provided.")
         else:
             return path_collider
 
