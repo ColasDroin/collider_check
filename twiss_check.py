@@ -129,16 +129,16 @@ class TwissCheck:
         """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
         or from a path to a collider."""
 
+        # Store the paths and the collider (if existing)
+        self.path_configuration = path_configuration
+        self.path_collider = path_collider
+        self.collider = collider
+
         # Check that either a collider or a path_to_collider has been provided
         if (self.collider is None and self.path_collider is None) or (
             self.collider is not None and self.path_collider is not None
         ):
             raise ValueError("Either a collider, or a path to a collider must be provided.")
-
-        # Store the paths and the collider (if existing)
-        self.path_configuration = path_configuration
-        self.path_collider = path_collider
-        self.collider = collider
 
         # If a path to collider has been provided, or a collider has been provided, load the collider
         if self.path_collider is not None:
