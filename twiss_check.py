@@ -26,7 +26,7 @@ class BuildCollider:
         self.correct_configuration()
 
         # Load and tune collider
-        self.collider, self.d_twiss_before_bb, self.d_twiss_after_bb = self.load_and_tune_collider()
+        self.collider, self.d_twiss_before_bb, self.d_twiss = self.load_and_tune_collider()
 
     def load_configuration(self):
         """Loads the configuration from a yaml file."""
@@ -72,12 +72,12 @@ class BuildCollider:
             configure_and_track = importlib.import_module("2_configure_and_track")
 
         # Build collider
-        collider, _, d_twiss_before_bb, d_twiss_after_bb = configure_and_track.configure_collider(
+        collider, _, d_twiss_before_bb, d_twiss = configure_and_track.configure_collider(
             self.configuration["config_simulation"],
             self.configuration["config_collider"],
             save_collider=False,
             return_twiss_before_bb=True,
-            return_twiss_after_bb=True,
+            return_twiss=True,
         )
 
         # Remove the folder "correction" which was created during the process
@@ -85,7 +85,7 @@ class BuildCollider:
         # Remove other temporary files
         os.system("rm -rf .__*")
 
-        return collider, d_twiss_before_bb, d_twiss_after_bb
+        return collider, d_twiss_before_bb, d_twiss
 
     def dump_collider_and_twiss(self, prefix=None, suffix="collider.json", save_twiss=True):
         """Dumps the collider to a json file."""
@@ -101,9 +101,7 @@ class BuildCollider:
         if save_twiss:
             path_twiss = path_collider.replace(suffix, "twiss.pickle")
             with open(path_twiss, "wb") as fid:
-                pickle.dump(
-                    {"before_bb": self.d_twiss_before_bb, "after_bb": self.d_twiss_after_bb}, fid
-                )
+                pickle.dump({"before_bb": self.d_twiss_before_bb, "after_bb": self.d_twiss}, fid)
             return path_collider, path_twiss
         else:
             return path_collider
@@ -114,66 +112,148 @@ class TwissCheck:
     def __init__(
         self,
         path_configuration,
-        path_dic_twiss = None
+        path_dic_twiss=None,
         path_collider=None,
         collider=None,
     ):
         """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
         or from a path to a collider."""
 
-        # Check that either a dictionnar of twiss or a collider/path_to_collider has been provided
-        if path_dic_twiss is None and collider is None and path_collider is None:
-            raise ValueError("Either a Twiss dictionnary, or a collider, or a path to a collider must be provided.")
-
-        elif path_dic_twiss is not None:
-            # Load the twiss dictionnary
-            with open(path_dic_twiss, "rb") as fid:
-                dic_twiss = pickle.load(fid)
-
-            # Get the twiss before and after beam-beam
-            self.d_twiss_before_bb = dic_twiss["before_bb"]
-            self.d_twiss_after_bb = dic_twiss["after_bb"]
-
-            # Get individual twiss before and after bb
-            self.tw_b1_before_bb, self.df_sv_b1_before_bb, self.df_tw_b1_before_bb = (
-                self.d_twiss_before_bb["lhcb1"]['twiss'],
-                self.d_twiss_before_bb["lhcb1"]['survey'].to_pandas(),
-                self.d_twiss_before_bb["lhcb1"]['twiss'].to_pandas(),
-            )
-            
-            self.tw_b1_after_bb, self.df_sv_b1_after_bb, self.df_tw_b1_after_bb = (
-                self.d_twiss_after_bb["lhcb1"]['twiss'],
-                self.d_twiss_after_bb["lhcb1"]['survey'].to_pandas(),
-                self.d_twiss_after_bb["lhcb1"]['twiss'].to_pandas(),
-            )
-            
-  
-        # If a path has been provided, load the collider
-        if path_collider is not None:
-            self.load_collider_from_path(path_collider)
-
-        elif collider is not None:
-            # We assume the tracker is already built in this case
-            self.collider = collider
-        else:
-            raise ValueError("Either a collider or a path to a collider must be provided.")
-
-        # Configuration path
+        # Store the paths and the collider (if existing)
         self.path_configuration = path_configuration
+        self.self.path_dic_twiss = path_dic_twiss
+        self.path_collider = path_collider
+        self.collider = collider
+
+        # Check that the input is consistent
+        self.check_input()
+
+        # If a path to twiss dictionnary has been provided, load the twiss and survey from dictionnary
+        if self.path_dic_twiss is not None:
+            self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
+                self.load_twiss_and_survey_from_dictionnary()
+            )
+            # Collider is set to None, all functions using the collider will raise an error
+            self.collider = None
+
+        # If a path to collider has been provided, or a collider has been provided, load the collider
+        if self.path_collider is not None:
+            if path_collider is not None:
+                self.collider = self.load_collider_from_path()
+
+            # Load twiss and survey from collider
+            self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
+                self.load_twiss_from_collider()
+            )
+
+        # Get luminosity configuration
+        self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
+            self.load_configuration_luminosity()
+        )
 
         # Load filling scheme
         self.array_b1, self.array_b2 = self.load_filling_scheme_arrays()
 
-        # Load collider and twiss dataframes
-        self.load_collider_and_twiss()
+    def check_input(self):
+        # Check that either a dictionnar of twiss or a collider/path_to_collider has been provided
+        if self.path_dic_twiss is None and self.collider is None and self.path_collider is None:
+            raise ValueError(
+                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
+                " provided."
+            )
 
-    def load_collider_from_path(self, path_collider):
+        # Check that only one of the three has been provided
+        if self.path_dic_twiss is not None and self.collider is not None:
+            raise ValueError(
+                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
+                " provided."
+            )
+        if self.path_dic_twiss is not None and self.path_collider is not None:
+            raise ValueError(
+                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
+                " provided."
+            )
+        if self.collider is not None and self.path_collider is not None:
+            raise ValueError(
+                "Either a Twiss dictionnary, or a collider, or a path to a collider must be"
+                " provided."
+            )
+
+    def load_twiss_and_survey_from_dictionnary(self):
+        # Load the twiss dictionnary
+        with open(self.path_dic_twiss, "rb") as fid:
+            dic_twiss = pickle.load(fid)
+
+        # Get individual twiss before and after bb
+        tw_b1, df_sv_b1, df_tw_b1 = (
+            dic_twiss["lhcb1"]["twiss"],
+            dic_twiss["lhcb1"]["survey"].to_pandas(),
+            dic_twiss["lhcb1"]["twiss"].to_pandas(),
+        )
+        tw_b2, df_sv_b2, df_tw_b2 = (
+            dic_twiss["lhcb2"]["twiss"],
+            dic_twiss["lhcb2"]["survey"].to_pandas(),
+            dic_twiss["lhcb2"]["twiss"].to_pandas(),
+        )
+
+        return tw_b1, df_sv_b1, df_tw_b1, tw_b2, df_sv_b2, df_tw_b2
+
+    def load_collider_from_path(self):
         """Loads the collider from a json file."""
         # Load collider
-        self.collider = xt.Multiline.from_json(path_collider)
+        collider = xt.Multiline.from_json(self.path_collider)
 
         # Build trackers
-        self.collider.build_trackers()
+        collider.build_trackers()
+
+        return collider
+
+    def load_twiss_from_collider(self):
+        """Returns the collider, along with the corresponding survey and twiss dataframes."""
+
+        def return_survey_and_twiss_dataframes_from_line(collider, beam=1):
+            """Returns the survey and twiss dataframes from a collider line."""
+
+            if beam == 1:
+                line = collider.lhcb1
+            elif beam == 2:
+                line = collider.lhcb2
+            else:
+                raise ValueError("Beam must be either 1 or 2.")
+
+            # Get survey dataframes
+            df_sv = line.survey().to_pandas()
+
+            # Get Twiss dataframes
+            tw = line.twiss()
+            df_tw = tw.to_pandas()
+
+            return tw, df_sv, df_tw
+
+        if self.collider is not None:
+            # Get twiss and survey dataframes for both beams
+            tw_b1, df_sv_b1, df_tw_b1 = return_survey_and_twiss_dataframes_from_line(
+                self.collider, beam=1
+            )
+            tw_b2, df_sv_b2, df_tw_b2 = return_survey_and_twiss_dataframes_from_line(
+                self.collider, beam=2
+            )
+
+            return tw_b1, df_sv_b1, df_tw_b1, tw_b2, df_sv_b2, df_tw_b2
+        else:
+            raise ValueError("No collider has been provided.")
+
+    def load_configuration_luminosity(self):
+        """Returns the configuration file variables used to compute the luminosity."""
+        with open(self.path_configuration, "r") as fid:
+            configuration = yaml.safe_load(fid)["config_collider"]
+            num_particles_per_bunch = float(
+                configuration["config_beambeam"]["num_particles_per_bunch"]
+            )
+            nemitt_x = configuration["config_beambeam"]["nemitt_x"]
+            nemitt_y = configuration["config_beambeam"]["nemitt_y"]
+            sigma_z = configuration["config_beambeam"]["sigma_z"]
+        return num_particles_per_bunch, nemitt_x, nemitt_y, sigma_z
 
     def load_filling_scheme_arrays(self):
         """Load the filling scheme arrays (two boolean arrays representing the buckets in the two
@@ -196,58 +276,6 @@ class TwissCheck:
 
         return array_b1, array_b2
 
-    def load_collider_and_twiss(self):
-        """Returns the collider, along with the corresponding survey and twiss dataframes."""
-        if self.collider is not None:
-            # Get twiss and survey dataframes for both beams
-            self.tw_b1_after_bb, self.df_sv_b1_after_bb, self.df_tw_b1_after_bb = 
-            
-            
-             = (
-                self.return_survey_and_twiss_dataframes_from_line(beam=1)
-            )
-            self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
-                self.return_survey_and_twiss_dataframes_from_line(beam=2)
-            )
-
-            # Get luminosity configuration
-            self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
-                self.load_configuration_luminosity()
-            )
-        else:
-            raise ValueError("No collider has been provided.")
-
-    def return_survey_and_twiss_dataframes_from_line(self, beam=1):
-        """Returns the survey and twiss dataframes from a collider line."""
-
-        if beam == 1:
-            line = self.collider.lhcb1
-        elif beam == 2:
-            line = self.collider.lhcb2
-        else:
-            raise ValueError("Beam must be either 1 or 2.")
-
-        # Get survey dataframes
-        df_sv = line.survey().to_pandas()
-
-        # Get Twiss dataframes
-        tw = line.twiss()
-        df_tw = tw.to_pandas()
-
-        return tw, df_sv, df_tw
-
-    def load_configuration_luminosity(self):
-        """Returns the configuration file variables used to compute the luminosity."""
-        with open(self.path_configuration, "r") as fid:
-            configuration = yaml.safe_load(fid)["config_collider"]
-            num_particles_per_bunch = float(
-                configuration["config_beambeam"]["num_particles_per_bunch"]
-            )
-            nemitt_x = configuration["config_beambeam"]["nemitt_x"]
-            nemitt_y = configuration["config_beambeam"]["nemitt_y"]
-            sigma_z = configuration["config_beambeam"]["sigma_z"]
-        return num_particles_per_bunch, nemitt_x, nemitt_y, sigma_z
-
     def return_number_of_collisions(self, IP=1):
         """Computes and returns the number of collisions at the requested IP."""
         # Assert that the arrays have the required length, and do the convolution
@@ -261,7 +289,7 @@ class TwissCheck:
         else:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
 
-    def return_luminosity(self, IP=1, tw_b1=None, tw_b2=None, crab=False):
+    def return_luminosity(self, IP=1, crab=False):
         """Computes and returns the luminosity at the requested IP. External twiss (e.g. from before
         beam-beam) can be provided."""
         if IP not in [1, 2, 5, 8]:
@@ -274,8 +302,8 @@ class TwissCheck:
             nemitt_x=self.nemitt_x,
             nemitt_y=self.nemitt_y,
             sigma_z=self.sigma_z,
-            twiss_b1=self.tw_b1_after_bb if tw_b1 is None else tw_b1,
-            twiss_b2=self.tw_b2 if tw_b2 is None else tw_b2,
+            twiss_b1=self.tw_b1,
+            twiss_b2=self.tw_b2,
             crab=crab,
         )
         return luminosity
@@ -284,7 +312,7 @@ class TwissCheck:
         """Returns the twiss parameters, position and angle at the requested IP."""
         if beam == 1:
             return (
-                self.tw_b1_after_bb.rows[f"ip{ip}"]
+                self.tw_b1.rows[f"ip{ip}"]
                 .cols["s", "x", "px", "y", "py", "betx", "bety", "dx", "dy"]
                 .to_pandas()
             )
@@ -300,7 +328,7 @@ class TwissCheck:
     def return_tune_and_chromaticity(self, beam=1):
         """Returns the tune and chromaticity for the requested beam."""
         if beam == 1:
-            return self.tw_b1_after_bb["qx"], self.tw_b1_after_bb["dqx"], self.tw_b1_after_bb["qy"], self.tw_b1_after_bb["dqy"]
+            return self.tw_b1["qx"], self.tw_b1["dqx"], self.tw_b1["qy"], self.tw_b1["dqy"]
         elif beam == 2:
             return self.tw_b2["qx"], self.tw_b2["dqx"], self.tw_b2["qy"], self.tw_b2["dqy"]
         else:
@@ -308,38 +336,41 @@ class TwissCheck:
 
     def return_linear_coupling(self):
         """Returns the linear coupling for the two beams."""
-        return self.tw_b1_after_bb["c_minus"], self.tw_b2["c_minus"]
+        return self.tw_b1["c_minus"], self.tw_b2["c_minus"]
 
     def return_momentum_compaction_factor(self):
         """Returns the momentum compaction factor for the two beams."""
-        return self.tw_b1_after_bb["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
+        return self.tw_b1["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
 
     def return_separation_knobs(self):
         """Returns the separation knobs at IP2 and IP8."""
-        return (
-            self.collider.vars["on_sep8h"]._value,
-            self.collider.vars["on_sep8v"]._value,
-            self.collider.vars["on_sep2"]._value,
-        )
+        if self.collider is not None:
+            return (
+                self.collider.vars["on_sep8h"]._value,
+                self.collider.vars["on_sep8v"]._value,
+                self.collider.vars["on_sep2"]._value,
+            )
+        else:
+            raise ValueError("No collider has been provided.")
 
     def return_normalized_separation(self, IP):
         """Returns the normalized separation at the requested IP."""
         if IP == 1:
-            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["px"])
-            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["bety"])
+            xing = float(self.tw_b1.rows[f"ip{IP}"]["px"])
+            beta = float(self.tw_b1.rows[f"ip{IP}"]["bety"])
             sep = xing * np.sqrt(beta / self.nemitt_x)
         elif IP == 2:
             # ! Should I take py?
-            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["px"])
-            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["bety"])
+            xing = float(self.tw_b1.rows[f"ip{IP}"]["px"])
+            beta = float(self.tw_b1.rows[f"ip{IP}"]["bety"])
             sep = xing * np.sqrt(beta / self.nemitt_x)
         elif IP == 5:
-            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["py"])
-            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["betx"])
+            xing = float(self.tw_b1.rows[f"ip{IP}"]["py"])
+            beta = float(self.tw_b1.rows[f"ip{IP}"]["betx"])
             sep = xing * np.sqrt(beta / self.nemitt_y)
         elif IP == 8:
-            xing = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["py"])
-            beta = float(self.tw_b1_after_bb.rows[f"ip{IP}"]["betx"])
+            xing = float(self.tw_b1.rows[f"ip{IP}"]["py"])
+            beta = float(self.tw_b1.rows[f"ip{IP}"]["betx"])
             sep = xing * np.sqrt(beta / self.nemitt_y)
         return sep
 
@@ -385,12 +416,13 @@ class TwissCheck:
 
         str_file += "\n\n"
 
-        # Check separation knobs
-        sep8h, sep8v, sep2 = self.return_separation_knobs()
-        str_file += "Separation knobs\n"
-        str_file += f"sep8h = {sep8h:.4f}, sep8v = {sep8v:.4f}, sep2 = {sep2:.4f}\n"
+        if self.collider is not None:
+            # Check separation knobs
+            sep8h, sep8v, sep2 = self.return_separation_knobs()
+            str_file += "Separation knobs\n"
+            str_file += f"sep8h = {sep8h:.4f}, sep8v = {sep8v:.4f}, sep2 = {sep2:.4f}\n"
 
-        str_file += "\n\n"
+            str_file += "\n\n"
 
         # Check normalized separation
         sep1 = self.return_normalized_separation(IP=1)
