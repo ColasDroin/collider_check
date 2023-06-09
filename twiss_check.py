@@ -145,10 +145,10 @@ class TwissCheck:
             if path_collider is not None:
                 self.collider = self.load_collider_from_path()
 
-            # Load twiss and survey from collider
-            self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
-                self.load_twiss_from_collider()
-            )
+        # Load twiss and survey from collider
+        self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
+            self.load_twiss_from_collider()
+        )
 
         # Get luminosity configuration
         self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
