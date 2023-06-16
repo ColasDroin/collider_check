@@ -142,8 +142,7 @@ class TwissCheck:
 
         # If a path to collider has been provided, or a collider has been provided, load the collider
         if self.path_collider is not None:
-            if path_collider is not None:
-                self.collider = self.load_collider_from_path()
+            self.collider = self.load_collider_from_path()
 
         # Load twiss and survey from collider
         self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
