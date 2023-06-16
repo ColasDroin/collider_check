@@ -30,6 +30,10 @@ class BuildCollider:
             save_collider_before_bb
         )
 
+        # Build trackers for collider_before_bb
+        if self.collider_before_bb is not None:
+            self.collider_before_bb.build_trackers()
+
     def load_configuration(self):
         """Loads the configuration from a yaml file."""
         with open(self.path_configuration, "r") as fid:
