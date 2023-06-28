@@ -104,9 +104,7 @@ class BuildCollider:
     def dump_collider(self, prefix=None, suffix="collider.json", dump_before_bb=False):
         """Dumps the collider to a json file."""
         path_collider = (
-            self.path_configuration.split("/scans/")[1]
-            .split("config.yaml")[0]
-            .replace("/", "_")[:-5]
+            self.path_configuration.split("/scans/")[1].split("config.yaml")[0].replace("/", "_")
         )
         if prefix is not None:
             path_collider = prefix + path_collider + suffix
@@ -159,7 +157,9 @@ class TwissCheck:
         )
 
         # Load filling scheme
-        self.array_b1, self.array_b2 = self.load_filling_scheme_arrays()
+        self.array_b1, self.array_b2, self.i_bunch_b1, self.i_bunch_b2 = (
+            self.load_filling_scheme_arrays()
+        )
 
     def load_collider_from_path(self):
         """Loads the collider from a json file."""
@@ -237,7 +237,14 @@ class TwissCheck:
         array_b1 = np.array(filling_scheme["beam1"])
         array_b2 = np.array(filling_scheme["beam2"])
 
-        return array_b1, array_b2
+        # Get the bunches selected for tracking
+        i_bunch_b1 = configuration["config_collider"]["config_beambeam"][
+            "mask_with_filling_pattern"
+        ]["i_bunch_b1"]
+        i_bunch_b2 = configuration["config_collider"]["config_beambeam"][
+            "mask_with_filling_pattern"
+        ]["i_bunch_b2"]
+        return array_b1, array_b2, i_bunch_b1, i_bunch_b2
 
     def return_number_of_collisions(self, IP=1):
         """Computes and returns the number of collisions at the requested IP."""
