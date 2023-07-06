@@ -10,8 +10,8 @@ import os
 class TwissCheck:
     def __init__(
         self,
+        collider,
         path_configuration=None,
-        collider=None,
     ):
         """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
         or from a path to a collider."""
