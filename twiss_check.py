@@ -10,8 +10,7 @@ import os
 class TwissCheck:
     def __init__(
         self,
-        path_configuration,
-        path_collider=None,
+        path_configuration=None,
         collider=None,
     ):
         """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
@@ -19,43 +18,41 @@ class TwissCheck:
 
         # Store the paths and the collider (if existing)
         self.path_configuration = path_configuration
-        self.path_collider = path_collider
         self.collider = collider
-
-        # Check that either a collider or a path_to_collider has been provided
-        if (self.collider is None and self.path_collider is None) or (
-            self.collider is not None and self.path_collider is not None
-        ):
-            raise ValueError("Either a collider, or a path to a collider must be provided.")
-
-        # If a path to collider has been provided, or a collider has been provided, load the collider
-        if self.path_collider is not None:
-            self.collider = self.load_collider_from_path()
 
         # Load twiss and survey from collider
         self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
             self.load_twiss_from_collider()
         )
 
-        # Get luminosity configuration
-        self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
-            self.load_configuration_luminosity()
-        )
+        if self.path_configuration is not None:
+            # Get luminosity configuration
+            self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
+                self.load_configuration_luminosity()
+            )
 
-        # Load filling scheme
-        self.path_filling_scheme, self.array_b1, self.array_b2, self.i_bunch_b1, self.i_bunch_b2 = (
-            self.load_filling_scheme_arrays()
-        )
+            # Load filling scheme
+            (
+                self.path_filling_scheme,
+                self.array_b1,
+                self.array_b2,
+                self.i_bunch_b1,
+                self.i_bunch_b2,
+            ) = self.load_filling_scheme_arrays()
 
-    def load_collider_from_path(self):
-        """Loads the collider from a json file."""
-        # Load collider
-        collider = xt.Multiline.from_json(self.path_collider)
+        else:
+            # Set the luminosity configuration to None
+            self.num_particles_per_bunch = None
+            self.nemitt_x = None
+            self.nemitt_y = None
+            self.sigma_z = None
 
-        # Build trackers
-        collider.build_trackers()
-
-        return collider
+            # Set the filling scheme to None
+            self.path_filling_scheme = None
+            self.array_b1 = None
+            self.array_b2 = None
+            self.i_bunch_b1 = None
+            self.i_bunch_b2 = None
 
     def load_twiss_from_collider(self):
         """Returns the collider, along with the corresponding survey and twiss dataframes."""
@@ -134,6 +131,8 @@ class TwissCheck:
 
     def return_number_of_collisions(self, IP=1):
         """Computes and returns the number of collisions at the requested IP."""
+        if self.array_b1 is None or self.array_b2 is None:
+            raise ValueError("No filling scheme has been provided when building the TwissCheck.")
         # Assert that the arrays have the required length, and do the convolution
         assert len(self.array_b1) == len(self.array_b2) == 3564
         if IP == 1 or IP == 5:
@@ -148,6 +147,11 @@ class TwissCheck:
     def return_luminosity(self, IP=1, crab=False):
         """Computes and returns the luminosity at the requested IP. External twiss (e.g. from before
         beam-beam) can be provided."""
+        if self.num_particles_per_bunch is None:
+            raise ValueError(
+                "No luminosity configuration has been provided when building the TwissCheck."
+            )
+
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
         n_col = self.return_number_of_collisions(IP=IP)
@@ -291,13 +295,16 @@ class TwissCheck:
 
         # str_file += "\n\n"
 
-        # Check luminosity
-        lumi1 = self.return_luminosity(IP=1)
-        lumi2 = self.return_luminosity(IP=2)
-        lumi5 = self.return_luminosity(IP=5)
-        lumi8 = self.return_luminosity(IP=8)
-        str_file += "Luminosity\n"
-        str_file += f"IP1 = {lumi1:.4e}, IP2 = {lumi2:.4e}, IP5 = {lumi5:.4e}, IP8 = {lumi8:.4e}\n"
+        if self.path_configuration is not None:
+            # Check luminosity
+            lumi1 = self.return_luminosity(IP=1)
+            lumi2 = self.return_luminosity(IP=2)
+            lumi5 = self.return_luminosity(IP=5)
+            lumi8 = self.return_luminosity(IP=8)
+            str_file += "Luminosity\n"
+            str_file += (
+                f"IP1 = {lumi1:.4e}, IP2 = {lumi2:.4e}, IP5 = {lumi5:.4e}, IP8 = {lumi8:.4e}\n"
+            )
 
         str_file += "\n\n"
 
