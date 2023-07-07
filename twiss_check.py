@@ -12,12 +12,12 @@ class TwissCheck:
         self,
         collider,
         path_configuration=None,
+        configuration=None,
     ):
         """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
         or from a path to a collider."""
 
         # Store the paths and the collider (if existing)
-        self.path_configuration = path_configuration
         self.collider = collider
 
         # Load twiss and survey from collider
@@ -25,7 +25,17 @@ class TwissCheck:
             self.load_twiss_from_collider()
         )
 
-        if self.path_configuration is not None:
+        if path_configuration is not None and configuration is not None:
+            raise ValueError("Only one of path_configuration and configuration can be provided.")
+        elif path_configuration is not None:
+            with open(path_configuration, "r") as fid:
+                self.configuration = yaml.safe_load(fid)["config_collider"]
+        elif configuration is not None:
+            self.configuration = configuration
+        else:
+            print("Warning: no configuration provided when building the TwissCheck.")
+
+        if self.configuration is not None:
             # Get luminosity configuration
             self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
                 self.load_configuration_luminosity()
@@ -91,27 +101,21 @@ class TwissCheck:
 
     def load_configuration_luminosity(self):
         """Returns the configuration file variables used to compute the luminosity."""
-        with open(self.path_configuration, "r") as fid:
-            configuration = yaml.safe_load(fid)["config_collider"]
-            num_particles_per_bunch = float(
-                configuration["config_beambeam"]["num_particles_per_bunch"]
-            )
-            nemitt_x = configuration["config_beambeam"]["nemitt_x"]
-            nemitt_y = configuration["config_beambeam"]["nemitt_y"]
-            sigma_z = configuration["config_beambeam"]["sigma_z"]
+        num_particles_per_bunch = float(
+            self.configuration["config_beambeam"]["num_particles_per_bunch"]
+        )
+        nemitt_x = self.configuration["config_beambeam"]["nemitt_x"]
+        nemitt_y = self.configuration["config_beambeam"]["nemitt_y"]
+        sigma_z = self.configuration["config_beambeam"]["sigma_z"]
         return num_particles_per_bunch, nemitt_x, nemitt_y, sigma_z
 
     def load_filling_scheme_arrays(self):
         """Load the filling scheme arrays (two boolean arrays representing the buckets in the two
         beams) from a json file (whose path is in the configuration file)."""
-        # First load the configuration file
-        with open(self.path_configuration, "r") as fid:
-            configuration = yaml.safe_load(fid)
-
         # Then get the filling scheme path (should already be an absolute path)
-        path_filling_scheme = configuration["config_collider"]["config_beambeam"][
-            "mask_with_filling_pattern"
-        ]["pattern_fname"]
+        path_filling_scheme = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
+            "pattern_fname"
+        ]
 
         # Load the arrays
         with open(path_filling_scheme) as fid:
@@ -121,12 +125,12 @@ class TwissCheck:
         array_b2 = np.array(filling_scheme["beam2"])
 
         # Get the bunches selected for tracking
-        i_bunch_b1 = configuration["config_collider"]["config_beambeam"][
-            "mask_with_filling_pattern"
-        ]["i_bunch_b1"]
-        i_bunch_b2 = configuration["config_collider"]["config_beambeam"][
-            "mask_with_filling_pattern"
-        ]["i_bunch_b2"]
+        i_bunch_b1 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
+            "i_bunch_b1"
+        ]
+        i_bunch_b2 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
+            "i_bunch_b2"
+        ]
         return path_filling_scheme, array_b1, array_b2, i_bunch_b1, i_bunch_b2
 
     def return_number_of_collisions(self, IP=1):
@@ -295,7 +299,7 @@ class TwissCheck:
 
         # str_file += "\n\n"
 
-        if self.path_configuration is not None:
+        if self.configuration is not None:
             # Check luminosity
             lumi1 = self.return_luminosity(IP=1)
             lumi2 = self.return_luminosity(IP=2)
