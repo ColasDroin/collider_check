@@ -30,9 +30,13 @@ class TwissCheck:
         elif path_configuration is not None:
             with open(path_configuration, "r") as fid:
                 self.configuration = yaml.safe_load(fid)["config_collider"]
+                self.configuration_str = yaml.dump(self.configuration)
         elif configuration is not None:
             self.configuration = configuration
+            self.configuration_str = yaml.dump(self.configuration)
         else:
+            self.configuration = None
+            self.configuration_str = None
             print("Warning: no configuration provided when building the TwissCheck.")
 
         if self.configuration is not None:
