@@ -246,7 +246,7 @@ class TwissCheck:
             raise ValueError("No collider has been provided.")
 
     def return_polarity_ip_2_8(self):
-        if self.configurations is not None:
+        if self.configuration is not None:
             polarity_alice = self.configuration["config_knobs_and_tuning"]["knob_settings"][
                 "on_alice_normalized"
             ]
