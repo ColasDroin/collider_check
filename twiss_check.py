@@ -41,9 +41,13 @@ class TwissCheck:
 
         if self.configuration is not None:
             # Get luminosity configuration
-            self.num_particles_per_bunch, self.nemitt_x, self.nemitt_y, self.sigma_z = (
-                self.load_configuration_luminosity()
-            )
+            (
+                self.num_particles_per_bunch,
+                self.num_particles_per_bunch_after_optimization,
+                self.nemitt_x,
+                self.nemitt_y,
+                self.sigma_z,
+            ) = self.load_configuration_luminosity()
 
             # Load filling scheme
             (
@@ -108,10 +112,22 @@ class TwissCheck:
         num_particles_per_bunch = float(
             self.configuration["config_beambeam"]["num_particles_per_bunch"]
         )
+        if "num_particles_per_bunch_after_optimization" in self.configuration["config_beambeam"]:
+            num_particles_per_bunch_after_optimization = float(
+                self.configuration["config_beambeam"]["num_particles_per_bunch_after_optimization"]
+            )
+        else:
+            num_particles_per_bunch_after_optimization = None
         nemitt_x = self.configuration["config_beambeam"]["nemitt_x"]
         nemitt_y = self.configuration["config_beambeam"]["nemitt_y"]
         sigma_z = self.configuration["config_beambeam"]["sigma_z"]
-        return num_particles_per_bunch, nemitt_x, nemitt_y, sigma_z
+        return (
+            num_particles_per_bunch,
+            num_particles_per_bunch_after_optimization,
+            nemitt_x,
+            nemitt_y,
+            sigma_z,
+        )
 
     def load_filling_scheme_arrays(self):
         """Load the filling scheme arrays (two boolean arrays representing the buckets in the two
@@ -159,13 +175,21 @@ class TwissCheck:
             raise ValueError(
                 "No luminosity configuration has been provided when building the TwissCheck."
             )
+        if self.num_particles_per_bunch_after_optimization is None:
+            print(
+                'Warning: "num_particles_per_bunch_after_optimization" not provided in the'
+                ' configuration, using "num_particles_per_bunch" instead.'
+            )
+            num_particles_per_bunch = self.num_particles_per_bunch
+        else:
+            num_particles_per_bunch = self.num_particles_per_bunch_after_optimization
 
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
         n_col = self.return_number_of_collisions(IP=IP)
         luminosity = xt.lumi.luminosity_from_twiss(
             n_colliding_bunches=n_col,
-            num_particles_per_bunch=self.num_particles_per_bunch,
+            num_particles_per_bunch=num_particles_per_bunch,
             ip_name="ip" + str(IP),
             nemitt_x=self.nemitt_x,
             nemitt_y=self.nemitt_y,
@@ -220,6 +244,23 @@ class TwissCheck:
             )
         else:
             raise ValueError("No collider has been provided.")
+
+    def return_polarity_ip_2_8(self):
+        if self.configurations is not None:
+            polarity_alice = self.configuration["config_knobs_and_tuning"]["knob_settings"][
+                "on_alice_normalized"
+            ]
+            polarity_lhcb = self.configuration["config_knobs_and_tuning"]["knob_settings"][
+                "on_lhcb_normalized"
+            ]
+        else:
+            print(
+                "Warning: no configuration provided when building the TwissCheck to compute Alice"
+                " and LHCb polarities."
+            )
+            polarity_alice = None
+            polarity_lhcb = None
+        return polarity_alice, polarity_lhcb
 
     # ! This needs to be updated
     # def return_normalized_separation(self, IP):
