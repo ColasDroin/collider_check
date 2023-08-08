@@ -6,38 +6,22 @@ import xtrack as xt
 import os
 
 
-#### Twiss Check class
-class TwissCheck:
-    def __init__(
-        self,
-        collider,
-        path_configuration=None,
-        configuration=None,
-    ):
-        """Initialize the TwissCheck class, either from a set of Twiss, or directly from a collider,
-        or from a path to a collider."""
+class ColliderCheck:
+    def __init__(self, collider):
+        """Initialize the ColliderCheck class directly from a collider, potentially embedding a
+        configuration file."""
 
-        # Store the paths and the collider (if existing)
+        # Store the collider
         self.collider = collider
 
-        # Load twiss and survey from collider
-        self.tw_b1, self.df_sv_b1, self.df_tw_b1, self.tw_b2, self.df_sv_b2, self.df_tw_b2 = (
-            self.load_twiss_from_collider()
-        )
+        # Define the configuration through a property since it might not be there
+        self._configuration = None
 
-        if path_configuration is not None and configuration is not None:
-            raise ValueError("Only one of path_configuration and configuration can be provided.")
-        elif path_configuration is not None:
-            with open(path_configuration, "r") as fid:
-                self.configuration = yaml.safe_load(fid)["config_collider"]
-                self.configuration_str = yaml.dump(self.configuration)
-        elif configuration is not None:
-            self.configuration = configuration
-            self.configuration_str = yaml.dump(self.configuration)
-        else:
-            self.configuration = None
-            self.configuration_str = None
-            print("Warning: no configuration provided when building the TwissCheck.")
+        # Get twiss and survey dataframes for both beams
+        self.tw_b1, self.sv_b1 = [self.collider.lhcb1.twiss(), self.collider.lhcb1.survey()]
+        self.tw_b2, self.sv_b2 = [self.collider.lhcb2.twiss(), self.collider.lhcb2.survey()]
+        self.df_tw_b1, self.df_sv_b1 = [self.tw_b1.to_pandas(), self.sv_b1.to_pandas()]
+        self.df_tw_b2, self.df_sv_b2 = [self.tw_b2.to_pandas(), self.sv_b2.to_pandas()]
 
         if self.configuration is not None:
             # Get luminosity configuration
@@ -72,40 +56,19 @@ class TwissCheck:
             self.i_bunch_b1 = None
             self.i_bunch_b2 = None
 
-    def load_twiss_from_collider(self):
-        """Returns the collider, along with the corresponding survey and twiss dataframes."""
-
-        def return_survey_and_twiss_dataframes_from_line(collider, beam=1):
-            """Returns the survey and twiss dataframes from a collider line."""
-
-            if beam == 1:
-                line = collider.lhcb1
-            elif beam == 2:
-                line = collider.lhcb2
-            else:
-                raise ValueError("Beam must be either 1 or 2.")
-
-            # Get survey dataframes
-            df_sv = line.survey().to_pandas()
-
-            # Get Twiss dataframes
-            tw = line.twiss()
-            df_tw = tw.to_pandas()
-
-            return tw, df_sv, df_tw
-
-        if self.collider is not None:
-            # Get twiss and survey dataframes for both beams
-            tw_b1, df_sv_b1, df_tw_b1 = return_survey_and_twiss_dataframes_from_line(
-                self.collider, beam=1
-            )
-            tw_b2, df_sv_b2, df_tw_b2 = return_survey_and_twiss_dataframes_from_line(
-                self.collider, beam=2
-            )
-
-            return tw_b1, df_sv_b1, df_tw_b1, tw_b2, df_sv_b2, df_tw_b2
+    @property
+    def configuration(self):
+        if self._configuration is not None:
+            return self._configuration
         else:
-            raise ValueError("No collider has been provided.")
+            # Get the corresponding configuration if it's there
+            if hasattr(self.collider, "metadata"):
+                self._configuration = self.collider.metadata
+        return self._configuration
+
+    @configuration.setter
+    def radius(self, configuration):
+        self._configuration = configuration
 
     def load_configuration_luminosity(self):
         """Returns the configuration file variables used to compute the luminosity."""
