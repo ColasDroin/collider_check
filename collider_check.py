@@ -16,45 +16,13 @@ class ColliderCheck:
 
         # Define the configuration through a property since it might not be there
         self._configuration = None
+        self._attributes_defined = False
 
         # Get twiss and survey dataframes for both beams
         self.tw_b1, self.sv_b1 = [self.collider.lhcb1.twiss(), self.collider.lhcb1.survey()]
         self.tw_b2, self.sv_b2 = [self.collider.lhcb2.twiss(), self.collider.lhcb2.survey()]
         self.df_tw_b1, self.df_sv_b1 = [self.tw_b1.to_pandas(), self.sv_b1.to_pandas()]
         self.df_tw_b2, self.df_sv_b2 = [self.tw_b2.to_pandas(), self.sv_b2.to_pandas()]
-
-        if self.configuration is not None:
-            # Get luminosity configuration
-            (
-                self.num_particles_per_bunch,
-                self.num_particles_per_bunch_after_optimization,
-                self.nemitt_x,
-                self.nemitt_y,
-                self.sigma_z,
-            ) = self.load_configuration_luminosity()
-
-            # Load filling scheme
-            (
-                self.path_filling_scheme,
-                self.array_b1,
-                self.array_b2,
-                self.i_bunch_b1,
-                self.i_bunch_b2,
-            ) = self.load_filling_scheme_arrays()
-
-        else:
-            # Set the luminosity configuration to None
-            self.num_particles_per_bunch = None
-            self.nemitt_x = None
-            self.nemitt_y = None
-            self.sigma_z = None
-
-            # Set the filling scheme to None
-            self.path_filling_scheme = None
-            self.array_b1 = None
-            self.array_b2 = None
-            self.i_bunch_b1 = None
-            self.i_bunch_b2 = None
 
     @property
     def configuration(self):
@@ -64,62 +32,69 @@ class ColliderCheck:
             # Get the corresponding configuration if it's there
             if hasattr(self.collider, "metadata"):
                 self._configuration = self.collider.metadata
+                self.update_attributes_configuration()
+
         return self._configuration
 
     @configuration.setter
-    def radius(self, configuration):
-        self._configuration = configuration
+    def configuration(self, configuration_dict):
+        self._configuration = configuration_dict
+        self.update_attributes_configuration()
+
+    def update_attributes_configuration(self):
+        # Compute luminosity and filling schemes attributes
+        self.load_configuration_luminosity()
+        self.load_filling_scheme_arrays()
+        self._attributes_defined = True
 
     def load_configuration_luminosity(self):
         """Returns the configuration file variables used to compute the luminosity."""
-        num_particles_per_bunch = float(
-            self.configuration["config_beambeam"]["num_particles_per_bunch"]
-        )
         if "num_particles_per_bunch_after_optimization" in self.configuration["config_beambeam"]:
-            num_particles_per_bunch_after_optimization = float(
+            self.num_particles_per_bunch = float(
                 self.configuration["config_beambeam"]["num_particles_per_bunch_after_optimization"]
             )
         else:
-            num_particles_per_bunch_after_optimization = None
-        nemitt_x = self.configuration["config_beambeam"]["nemitt_x"]
-        nemitt_y = self.configuration["config_beambeam"]["nemitt_y"]
-        sigma_z = self.configuration["config_beambeam"]["sigma_z"]
-        return (
-            num_particles_per_bunch,
-            num_particles_per_bunch_after_optimization,
-            nemitt_x,
-            nemitt_y,
-            sigma_z,
-        )
+            print(
+                "Warning: no num_particles_per_bunch_after_optimization provided in the config"
+                " file. Using the one from the configuration before optimization."
+            )
+            self.num_particles_per_bunch = float(
+                self.configuration["config_beambeam"]["num_particles_per_bunch"]
+            )
+
+        self.nemitt_x = self.configuration["config_beambeam"]["nemitt_x"]
+        self.nemitt_y = self.configuration["config_beambeam"]["nemitt_y"]
+        self.sigma_z = self.configuration["config_beambeam"]["sigma_z"]
 
     def load_filling_scheme_arrays(self):
         """Load the filling scheme arrays (two boolean arrays representing the buckets in the two
         beams) from a json file (whose path is in the configuration file)."""
         # Then get the filling scheme path (should already be an absolute path)
-        path_filling_scheme = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
-            "pattern_fname"
-        ]
+        self.path_filling_scheme = self.configuration["config_beambeam"][
+            "mask_with_filling_pattern"
+        ]["pattern_fname"]
 
         # Load the arrays
-        with open(path_filling_scheme) as fid:
+        with open(self.path_filling_scheme) as fid:
             filling_scheme = json.load(fid)
 
-        array_b1 = np.array(filling_scheme["beam1"])
-        array_b2 = np.array(filling_scheme["beam2"])
+        self.array_b1 = np.array(filling_scheme["beam1"])
+        self.array_b2 = np.array(filling_scheme["beam2"])
 
         # Get the bunches selected for tracking
-        i_bunch_b1 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
+        self.i_bunch_b1 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
             "i_bunch_b1"
         ]
-        i_bunch_b2 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
+        self.i_bunch_b2 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
             "i_bunch_b2"
         ]
-        return path_filling_scheme, array_b1, array_b2, i_bunch_b1, i_bunch_b2
 
     def return_number_of_collisions(self, IP=1):
         """Computes and returns the number of collisions at the requested IP."""
-        if self.array_b1 is None or self.array_b2 is None:
-            raise ValueError("No filling scheme has been provided when building the TwissCheck.")
+        if self._attributes_defined is None:
+            raise ValueError(
+                "No configuration has been provided when instantiating the ColliderCheck object."
+            )
         # Assert that the arrays have the required length, and do the convolution
         assert len(self.array_b1) == len(self.array_b2) == 3564
         if IP == 1 or IP == 5:
@@ -134,25 +109,17 @@ class ColliderCheck:
     def return_luminosity(self, IP=1, crab=False):
         """Computes and returns the luminosity at the requested IP. External twiss (e.g. from before
         beam-beam) can be provided."""
-        if self.num_particles_per_bunch is None:
+        if self._attributes_defined is None:
             raise ValueError(
-                "No luminosity configuration has been provided when building the TwissCheck."
+                "No configuration has been provided when instantiating the ColliderCheck object."
             )
-        if self.num_particles_per_bunch_after_optimization is None:
-            print(
-                'Warning: "num_particles_per_bunch_after_optimization" not provided in the'
-                ' configuration, using "num_particles_per_bunch" instead.'
-            )
-            num_particles_per_bunch = self.num_particles_per_bunch
-        else:
-            num_particles_per_bunch = self.num_particles_per_bunch_after_optimization
 
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
         n_col = self.return_number_of_collisions(IP=IP)
         luminosity = xt.lumi.luminosity_from_twiss(
             n_colliding_bunches=n_col,
-            num_particles_per_bunch=num_particles_per_bunch,
+            num_particles_per_bunch=self.num_particles_per_bunch,
             ip_name="ip" + str(IP),
             nemitt_x=self.nemitt_x,
             nemitt_y=self.nemitt_y,
@@ -197,17 +164,6 @@ class ColliderCheck:
         """Returns the momentum compaction factor for the two beams."""
         return self.tw_b1["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
 
-    def return_separation_knobs(self):
-        """Returns the separation knobs at IP2 and IP8."""
-        if self.collider is not None:
-            return (
-                self.collider.vars["on_sep8h"]._value,
-                self.collider.vars["on_sep8v"]._value,
-                self.collider.vars["on_sep2"]._value,
-            )
-        else:
-            raise ValueError("No collider has been provided.")
-
     def return_polarity_ip_2_8(self):
         if self.configuration is not None:
             polarity_alice = self.configuration["config_knobs_and_tuning"]["knob_settings"][
@@ -218,8 +174,8 @@ class ColliderCheck:
             ]
         else:
             print(
-                "Warning: no configuration provided when building the TwissCheck to compute Alice"
-                " and LHCb polarities."
+                "Warning: no configuration provided when instantiating the ColliderCheck object to"
+                " compute Alice and LHCb polarities."
             )
             polarity_alice = None
             polarity_lhcb = None
@@ -289,14 +245,6 @@ class ColliderCheck:
 
         str_file += "\n\n"
 
-        if self.collider is not None:
-            # Check separation knobs
-            sep8h, sep8v, sep2 = self.return_separation_knobs()
-            str_file += "Separation knobs\n"
-            str_file += f"sep8h = {sep8h:.4f}, sep8v = {sep8v:.4f}, sep2 = {sep2:.4f}\n"
-
-            str_file += "\n\n"
-
         # # Check normalized separation
         # sep1 = self.return_normalized_separation(IP=1)
         # sep2 = self.return_normalized_separation(IP=2)
@@ -328,5 +276,5 @@ class ColliderCheck:
 # if __name__ == "__main__":
 
 #     # Do Twiss check
-#     twiss_check = TwissCheck(path_config, collider=build_collider.collider)
+#     twiss_check = ColliderCheck(path_config, collider=build_collider.collider)
 #     twiss_check.output_check_as_txt()
