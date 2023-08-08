@@ -30,6 +30,9 @@ class ColliderCheck:
 
     @property
     def configuration(self):
+        """Loads the configuration, as well as the luminosity and filling scheme arrays, if they're
+        not already loaded."""
+
         if self._configuration is not None:
             return self._configuration
         else:
@@ -42,6 +45,7 @@ class ColliderCheck:
 
     @configuration.setter
     def configuration(self, configuration_dict):
+        """This function is used to update the configuration, and the attributes that depend on it."""
         self._configuration = configuration_dict
         self._update_attributes_configuration()
 
@@ -61,7 +65,6 @@ class ColliderCheck:
             )
 
     def _load_configuration_luminosity(self):
-        """Returns the configuration file variables used to compute the luminosity."""
         if "num_particles_per_bunch_after_optimization" in self.configuration["config_beambeam"]:
             self.num_particles_per_bunch = float(
                 self.configuration["config_beambeam"]["num_particles_per_bunch_after_optimization"]
@@ -80,14 +83,12 @@ class ColliderCheck:
         self.sigma_z = self.configuration["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
-        """Load the filling scheme arrays (two boolean arrays representing the buckets in the two
-        beams) from a json file (whose path is in the configuration file)."""
         # Then get the filling scheme path (should already be an absolute path)
         self.path_filling_scheme = self.configuration["config_beambeam"][
             "mask_with_filling_pattern"
         ]["pattern_fname"]
 
-        # Load the arrays
+        # Load the scheme (two boolean arrays representing the buckets in the two beams)
         with open(self.path_filling_scheme) as fid:
             filling_scheme = json.load(fid)
 
@@ -177,6 +178,7 @@ class ColliderCheck:
         return self.tw_b1["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
 
     def return_polarity_ip_2_8(self):
+        """Return the polarity (internal angle of the experiments) for IP2 and IP8."""
         # Ensure configuration is defined
         self._check_no_configuration()
 
@@ -199,6 +201,7 @@ class ColliderCheck:
                 self.collider["lhcb2"].survey(element0=f"ip{ip}").reverse()
             )
 
+        # Define strong and weak beams
         if beam_weak == "b1":
             beam_strong = "b2"
             twiss_weak = self.tw_b1
@@ -212,6 +215,7 @@ class ColliderCheck:
             survey_weak = self.dic_survey_per_ip["lhcb2"]
             survey_strong = self.dic_survey_per_ip["lhcb1"]
 
+        # Filter the twiss and surveys at the requested IP
         survey_filtered = {}
         twiss_filtered = {}
         my_filter_string = f"bb_(ho|lr)\.(r|l|c){ip[2]}.*"
@@ -290,15 +294,19 @@ class ColliderCheck:
         d_x_weak_strong_in_meter,
         d_y_weak_strong_in_meter,
     ):
+        # Size of the strong beams
         sigma_x_strong = np.sqrt(twiss_filtered[beam_strong]["betx"] * emittance_strong_x)
         sigma_y_strong = np.sqrt(twiss_filtered[beam_strong]["bety"] * emittance_strong_y)
 
+        # Size of the weak beams
         sigma_x_weak = np.sqrt(twiss_filtered[beam_weak]["betx"] * emittance_weak_x)
         sigma_y_weak = np.sqrt(twiss_filtered[beam_weak]["bety"] * emittance_weak_y)
 
+        # Normalized separation
         dx_sig = d_x_weak_strong_in_meter / sigma_x_strong
         dy_sig = d_y_weak_strong_in_meter / sigma_y_strong
 
+        # Flatness of the beam
         A_w_s = sigma_x_weak / sigma_y_strong
         B_w_s = sigma_y_weak / sigma_x_strong
 
@@ -310,6 +318,9 @@ class ColliderCheck:
     # Cache function to gain time
     @lru_cache(maxsize=20)
     def compute_separation_variables(self, ip="ip1", beam_weak="b1"):
+        """This function computes all the variables needed to compute the separation at the
+        requested IP, in a weak-strong setting. The variables are stored and return in a dictionnary.
+        """
         # Ensure configuration is defined
         self._check_no_configuration()
 
@@ -375,6 +386,8 @@ class ColliderCheck:
         return dic_separation
 
     def plot_orbits(self, ip="ip1", beam_weak="b1"):
+        """Plots the beams orbits at the requested IP."""
+
         # Get separation variables
         ip_dict = self.compute_separation_variables(ip=ip, beam_weak=beam_weak)
 
@@ -395,6 +408,7 @@ class ColliderCheck:
         plt.show()
 
     def plot_separation(self, ip="ip1", beam_weak="b1"):
+        """Plots the normalized separation at the requested IP."""
         # Get separation variables
         ip_dict = self.compute_separation_variables(ip=ip, beam_weak=beam_weak)
 
@@ -410,6 +424,7 @@ class ColliderCheck:
         plt.show()
 
     def output_check_as_str(self, path_output=None):
+        """Summarizes the collider observables in a string, and optionally to a file."""
         str_file = ""
 
         # Check tune and chromaticity
