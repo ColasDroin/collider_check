@@ -17,7 +17,6 @@ class ColliderCheck:
 
         # Define the configuration through a property since it might not be there
         self._configuration = None
-        self._attributes_defined = False
 
         # Get twiss and survey dataframes for both beams
         self.tw_b1, self.sv_b1 = [self.collider.lhcb1.twiss(), self.collider.lhcb1.survey()]
@@ -56,10 +55,9 @@ class ColliderCheck:
 
         # Clean cache for separation computation
         self.compute_separation_variables.cache_clear()
-        self._attributes_defined = True
 
-    def _check_no_configuration(self):
-        if not self._attributes_defined:
+    def _check_configuration(self):
+        if self.configuration is None:
             raise ValueError(
                 "No configuration has been provided when instantiating the ColliderCheck object."
             )
@@ -107,7 +105,7 @@ class ColliderCheck:
         """Computes and returns the number of collisions at the requested IP."""
 
         # Ensure configuration is defined
-        self._check_no_configuration()
+        self._check_configuration()
 
         # Assert that the arrays have the required length, and do the convolution
         assert len(self.array_b1) == len(self.array_b2) == 3564
@@ -125,7 +123,7 @@ class ColliderCheck:
         beam-beam) can be provided."""
 
         # Ensure configuration is defined
-        self._check_no_configuration()
+        self._check_configuration()
 
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
@@ -180,7 +178,7 @@ class ColliderCheck:
     def return_polarity_ip_2_8(self):
         """Return the polarity (internal angle of the experiments) for IP2 and IP8."""
         # Ensure configuration is defined
-        self._check_no_configuration()
+        self._check_configuration()
 
         polarity_alice = self.configuration["config_knobs_and_tuning"]["knob_settings"][
             "on_alice_normalized"
@@ -322,7 +320,7 @@ class ColliderCheck:
         requested IP, in a weak-strong setting. The variables are stored and return in a dictionnary.
         """
         # Ensure configuration is defined
-        self._check_no_configuration()
+        self._check_configuration()
 
         # Get variables specific to the requested IP
         (
@@ -466,7 +464,7 @@ class ColliderCheck:
 
         str_file += "\n\n"
 
-        if self._attributes_defined:
+        if self.configuration is not None:
             # Check luminosity
             lumi1 = self.return_luminosity(IP=1)
             lumi2 = self.return_luminosity(IP=2)
@@ -487,8 +485,23 @@ class ColliderCheck:
         return str_file
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    path_collider = "/afs/cern.ch/work/c/cdroin/private/example_DA_study/master_study/scans/all_optics_2023/collider_03/xtrack_0000/collider.json"
+    with open(path_collider, "r") as fid:
+        collider_dict = json.load(fid)
+    if "config_yaml" in collider_dict:
+        print("A configuration has been found in the collider file. Using it.")
+        config = collider_dict["config_yaml"]
+    else:
+        print(
+            "Warning, you provided a collider file without a configuration. Some features of"
+            " the dashboard will be missing."
+        )
 
-#     # Do Twiss check
-#     twiss_check = ColliderCheck(path_config, collider=build_collider.collider)
-#     twiss_check.output_check_as_txt()
+    collider = xt.Multiline.from_dict(collider_dict)
+    collider.metadata = config
+    collider.build_trackers()
+
+    # Do collider check
+    collider_check = ColliderCheck(collider=collider)
+    print(collider_check.output_check_as_str(path_output="check.txt"))
