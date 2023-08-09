@@ -49,6 +49,17 @@ class ColliderCheck:
         self._update_attributes_configuration()
 
     def _update_attributes_configuration(self):
+        # Ensure that the configuration format is correct
+        if "config_collider" not in self.configuration:
+            print(
+                "Warning, the provided configuration doesn't embed mad configuration. assuming beam"
+                " energy of 6.8 TeV."
+            )
+            self.configuration = {
+                "config_collider": self.configuration,
+                "config_mad": {"beam_config": {"lhcb1": {"beam_energy_tot": 6800}}},
+            }
+
         # Compute luminosity and filling schemes attributes
         self._load_configuration_luminosity()
         self._load_filling_scheme_arrays()
@@ -63,9 +74,14 @@ class ColliderCheck:
             )
 
     def _load_configuration_luminosity(self):
-        if "num_particles_per_bunch_after_optimization" in self.configuration["config_beambeam"]:
+        if (
+            "num_particles_per_bunch_after_optimization"
+            in self.configuration["config_collider"]["config_beambeam"]
+        ):
             self.num_particles_per_bunch = float(
-                self.configuration["config_beambeam"]["num_particles_per_bunch_after_optimization"]
+                self.configuration["config_collider"]["config_beambeam"][
+                    "num_particles_per_bunch_after_optimization"
+                ]
             )
         else:
             print(
@@ -73,16 +89,17 @@ class ColliderCheck:
                 " file. Using the one from the configuration before optimization."
             )
             self.num_particles_per_bunch = float(
-                self.configuration["config_beambeam"]["num_particles_per_bunch"]
+                self.configuration["config_collider"]["config_beambeam"]["num_particles_per_bunch"]
             )
 
-        self.nemitt_x = self.configuration["config_beambeam"]["nemitt_x"]
-        self.nemitt_y = self.configuration["config_beambeam"]["nemitt_y"]
-        self.sigma_z = self.configuration["config_beambeam"]["sigma_z"]
+        self.nemitt_x = self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
+        self.nemitt_y = self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
+        self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
+        self.energy = self.configuration["config_mad"]["beam_config"]["lhcb1"]["beam_energy_tot"]
 
     def _load_filling_scheme_arrays(self):
         # Then get the filling scheme path (should already be an absolute path)
-        self.path_filling_scheme = self.configuration["config_beambeam"][
+        self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
             "mask_with_filling_pattern"
         ]["pattern_fname"]
 
@@ -94,12 +111,12 @@ class ColliderCheck:
         self.array_b2 = np.array(filling_scheme["beam2"])
 
         # Get the bunches selected for tracking
-        self.i_bunch_b1 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
-            "i_bunch_b1"
-        ]
-        self.i_bunch_b2 = self.configuration["config_beambeam"]["mask_with_filling_pattern"][
-            "i_bunch_b2"
-        ]
+        self.i_bunch_b1 = self.configuration["config_collider"]["config_beambeam"][
+            "mask_with_filling_pattern"
+        ]["i_bunch_b1"]
+        self.i_bunch_b2 = self.configuration["config_collider"]["config_beambeam"][
+            "mask_with_filling_pattern"
+        ]["i_bunch_b2"]
 
     def return_number_of_collisions(self, IP=1):
         """Computes and returns the number of collisions at the requested IP."""
@@ -180,23 +197,21 @@ class ColliderCheck:
         # Ensure configuration is defined
         self._check_configuration()
 
-        polarity_alice = self.configuration["config_knobs_and_tuning"]["knob_settings"][
-            "on_alice_normalized"
-        ]
-        polarity_lhcb = self.configuration["config_knobs_and_tuning"]["knob_settings"][
-            "on_lhcb_normalized"
-        ]
+        polarity_alice = self.configuration["config_collider"]["config_knobs_and_tuning"][
+            "knob_settings"
+        ]["on_alice_normalized"]
+        polarity_lhcb = self.configuration["config_collider"]["config_knobs_and_tuning"][
+            "knob_settings"
+        ]["on_lhcb_normalized"]
 
         return polarity_alice, polarity_lhcb
 
     def _compute_ip_specific_separation(self, ip="ip1", beam_weak="b1"):
         # Compute survey at IP if needed
         if ip not in self.dic_survey_per_ip["lhcb1"] or ip not in self.dic_survey_per_ip["lhcb2"]:
-            self.dic_survey_per_ip["lhcb1"][f"ip{ip}"] = self.collider["lhcb1"].survey(
-                element0=f"ip{ip}"
-            )
-            self.dic_survey_per_ip["lhcb2"][f"ip{ip}"] = (
-                self.collider["lhcb2"].survey(element0=f"ip{ip}").reverse()
+            self.dic_survey_per_ip["lhcb1"][ip] = self.collider["lhcb1"].survey(element0=ip)
+            self.dic_survey_per_ip["lhcb2"][ip] = (
+                self.collider["lhcb2"].survey(element0=ip).reverse()
             )
 
         # Define strong and weak beams
@@ -217,10 +232,8 @@ class ColliderCheck:
         survey_filtered = {}
         twiss_filtered = {}
         my_filter_string = f"bb_(ho|lr)\.(r|l|c){ip[2]}.*"
-        survey_filtered[beam_strong] = survey_strong[f"ip{ip[2]}"][
-            ["X", "Y", "Z"], my_filter_string
-        ]
-        survey_filtered[beam_weak] = survey_weak[f"ip{ip[2]}"][["X", "Y", "Z"], my_filter_string]
+        survey_filtered[beam_strong] = survey_strong[ip][["X", "Y", "Z"], my_filter_string]
+        survey_filtered[beam_weak] = survey_weak[ip][["X", "Y", "Z"], my_filter_string]
         twiss_filtered[beam_strong] = twiss_strong[:, my_filter_string]
         twiss_filtered[beam_weak] = twiss_weak[:, my_filter_string]
 
@@ -249,29 +262,20 @@ class ColliderCheck:
         )
 
     def _compute_emittances_separation(self):
-        energy = self.configuration["config_mad"]["beam_config"]["lhcb1"]["beam_energy_tot"]
-
         # gamma relativistic of a proton at 7 TeV
-        gamma_rel = energy / (
+        gamma_rel = self.energy / (
             constants.physical_constants["proton mass energy equivalent in MeV"][0] / 1000
         )
         # beta relativistic of a proton at 7 TeV
         beta_rel = np.sqrt(1 - 1 / gamma_rel**2)
 
-        emittance_strong_nx = self.configuration["config_beambeam"]["nemitt_x"]
-        emittance_strong_ny = self.configuration["config_beambeam"]["nemitt_y"]
+        emittance_strong_x = self.nemitt_x / gamma_rel / beta_rel
+        emittance_strong_y = self.nemitt_y / gamma_rel / beta_rel
 
-        emittance_weak_nx = self.configuration["config_beambeam"]["nemitt_x"]
-        emittance_weak_ny = self.configuration["config_beambeam"]["nemitt_y"]
-
-        emittance_strong_x = emittance_strong_nx / gamma_rel / beta_rel
-        emittance_strong_y = emittance_strong_ny / gamma_rel / beta_rel
-
-        emittance_weak_x = emittance_weak_nx / gamma_rel / beta_rel
-        emittance_weak_y = emittance_weak_ny / gamma_rel / beta_rel
+        emittance_weak_x = self.nemitt_x / gamma_rel / beta_rel
+        emittance_weak_y = self.nemitt_y / gamma_rel / beta_rel
 
         return (
-            energy,
             gamma_rel,
             beta_rel,
             emittance_weak_x,
@@ -331,18 +335,17 @@ class ColliderCheck:
             survey_filtered,
             d_x_weak_strong_in_meter,
             d_y_weak_strong_in_meter,
-        ) = self._get_ip_specific_separation(ip=ip, beam_weak=beam_weak)
+        ) = self._compute_ip_specific_separation(ip=ip, beam_weak=beam_weak)
 
         # Get emittances
         (
-            energy,
             gamma_rel,
             beta_rel,
             emittance_weak_x,
             emittance_weak_y,
             emittance_strong_x,
             emittance_strong_y,
-        ) = self._get_emittances_separation()
+        ) = self._compute_emittances_separation()
 
         # Get normalized separation
         dx_sig, dy_sig, A_w_s, B_w_s, fw, r = self._compute_ip_specific_normalized_separation(
@@ -374,7 +377,7 @@ class ColliderCheck:
             "emittance_weak_y": emittance_weak_y,
             "gamma_rel": gamma_rel,
             "beta_rel": beta_rel,
-            "energy": energy,
+            "energy": self.energy,
             "my_filter_string": my_filter_string,
             "beam_weak": beam_weak,
             "beam_strong": beam_strong,
