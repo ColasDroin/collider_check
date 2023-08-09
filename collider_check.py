@@ -2,6 +2,7 @@
 import numpy as np
 import json
 import xtrack as xt
+import yaml
 from scipy import constants
 from functools import lru_cache
 import matplotlib.pyplot as plt
@@ -17,6 +18,7 @@ class ColliderCheck:
 
         # Define the configuration through a property since it might not be there
         self._configuration = None
+        self.configuration_str = None
 
         # Get twiss and survey dataframes for both beams
         self.tw_b1, self.sv_b1 = [self.collider.lhcb1.twiss(), self.collider.lhcb1.survey()]
@@ -59,6 +61,7 @@ class ColliderCheck:
                 "config_collider": self.configuration,
                 "config_mad": {"beam_config": {"lhcb1": {"beam_energy_tot": 6800}}},
             }
+            self.configuration_str = yaml.dump(self.configuration)
 
         # Compute luminosity and filling schemes attributes
         self._load_configuration_luminosity()
