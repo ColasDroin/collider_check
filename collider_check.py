@@ -75,7 +75,7 @@ class ColliderCheck:
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
         else:
-            print('Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_x.')
+            print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_x.")
             return 2.2e-6
 
     @property
@@ -83,7 +83,7 @@ class ColliderCheck:
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
         else:
-            print('Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.')
+            print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.")
             return 2.2e-6
 
     def _check_configuration(self):
@@ -331,7 +331,16 @@ class ColliderCheck:
         fw = 1
         r = sigma_y_strong / sigma_x_strong
 
-        return dx_sig, dy_sig, A_w_s, B_w_s, fw, r
+        return (
+            d_x_weak_strong_in_meter,
+            d_y_weak_strong_in_meter,
+            dx_sig,
+            dy_sig,
+            A_w_s,
+            B_w_s,
+            fw,
+            r,
+        )
 
     # Cache function to gain time
     @lru_cache(maxsize=20)
@@ -362,16 +371,18 @@ class ColliderCheck:
         ) = self._compute_emittances_separation()
 
         # Get normalized separation
-        dx_sig, dy_sig, A_w_s, B_w_s, fw, r = self._compute_ip_specific_normalized_separation(
-            twiss_filtered,
-            beam_weak,
-            beam_strong,
-            emittance_strong_x,
-            emittance_strong_y,
-            emittance_weak_x,
-            emittance_weak_y,
-            d_x_weak_strong_in_meter,
-            d_y_weak_strong_in_meter,
+        d_x_weak_strong_in_meter, d_y_weak_strong_in_meter, dx_sig, dy_sig, A_w_s, B_w_s, fw, r = (
+            self._compute_ip_specific_normalized_separation(
+                twiss_filtered,
+                beam_weak,
+                beam_strong,
+                emittance_strong_x,
+                emittance_strong_y,
+                emittance_weak_x,
+                emittance_weak_y,
+                d_x_weak_strong_in_meter,
+                d_y_weak_strong_in_meter,
+            )
         )
 
         # Stora all variables used dor separation computation in a dictionnary
@@ -379,6 +390,8 @@ class ColliderCheck:
             "twiss_filtered": twiss_filtered,
             "survey_filtered": survey_filtered,
             "s": s,
+            "d_x_meter": d_x_weak_strong_in_meter,
+            "d_y_meter": d_y_weak_strong_in_meter,
             "dx_sig": dx_sig,
             "dy_sig": dy_sig,
             "A_w_s": A_w_s,
