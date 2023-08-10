@@ -21,7 +21,7 @@ class ColliderCheck:
         self.configuration_str = None
 
         # Beam energy
-        self.energy = collider_check.collider.lhcb1.particle_ref._p0c[0] / 1e9
+        self.energy = self.collider.lhcb1.particle_ref._p0c[0] / 1e9
 
         # Get twiss and survey dataframes for both beams
         self.tw_b1, self.sv_b1 = [self.collider.lhcb1.twiss(), self.collider.lhcb1.survey()]
