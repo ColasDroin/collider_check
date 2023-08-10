@@ -20,6 +20,9 @@ class ColliderCheck:
         self._configuration = None
         self.configuration_str = None
 
+        # Beam energy
+        self.energy = collider_check.collider.lhcb1.particle_ref._p0c[0] / 1e9
+
         # Get twiss and survey dataframes for both beams
         self.tw_b1, self.sv_b1 = [self.collider.lhcb1.twiss(), self.collider.lhcb1.survey()]
         self.tw_b2, self.sv_b2 = [self.collider.lhcb2.twiss(), self.collider.lhcb2.survey()]
@@ -53,13 +56,10 @@ class ColliderCheck:
     def _update_attributes_configuration(self):
         # Ensure that the configuration format is correct
         if "config_collider" not in self.configuration:
-            print(
-                "Warning, the provided configuration doesn't embed mad configuration. assuming beam"
-                " energy of 6.8 TeV."
-            )
+            print("Warning, the provided configuration doesn't embed mad configuration.")
             self.configuration = {
                 "config_collider": self.configuration,
-                "config_mad": {"beam_config": {"lhcb1": {"beam_energy_tot": 6800}}},
+                "config_mad": {},
             }
             self.configuration_str = yaml.dump(self.configuration)
 
@@ -69,6 +69,22 @@ class ColliderCheck:
 
         # Clean cache for separation computation
         self.compute_separation_variables.cache_clear()
+
+    @property
+    def nemitt_x(self):
+        if self.configuration is not None:
+            return self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
+        else:
+            print('Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_x.')
+            return 2.2e-6
+
+    @property
+    def nemitt_y(self):
+        if self.configuration is not None:
+            return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
+        else:
+            print('Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.')
+            return 2.2e-6
 
     def _check_configuration(self):
         if self.configuration is None:
@@ -95,10 +111,7 @@ class ColliderCheck:
                 self.configuration["config_collider"]["config_beambeam"]["num_particles_per_bunch"]
             )
 
-        self.nemitt_x = self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
-        self.nemitt_y = self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
-        self.energy = self.configuration["config_mad"]["beam_config"]["lhcb1"]["beam_energy_tot"]
 
     def _load_filling_scheme_arrays(self):
         # Then get the filling scheme path (should already be an absolute path)
@@ -326,8 +339,6 @@ class ColliderCheck:
         """This function computes all the variables needed to compute the separation at the
         requested IP, in a weak-strong setting. The variables are stored and return in a dictionnary.
         """
-        # Ensure configuration is defined
-        self._check_configuration()
 
         # Get variables specific to the requested IP
         (
