@@ -151,12 +151,26 @@ class ColliderCheck:
         else:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
 
-    def return_luminosity(self, IP=1, crab=False):
+    def return_luminosity(self, IP=1):
         """Computes and returns the luminosity at the requested IP. External twiss (e.g. from before
         beam-beam) can be provided."""
 
         # Ensure configuration is defined
         self._check_configuration()
+
+        # Check crab cavities
+        crab = False
+        if (
+            "on_crab1"
+            in self.configuration["config_collider"]["config_knobs_and_tuning"]["knob_settings"]
+        ):
+            crab_val = float(
+                self.configuration["config_collider"]["config_knobs_and_tuning"]["knob_settings"][
+                    "on_crab1"
+                ]
+            )
+            if crab_val > 0:
+                crab = True
 
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
