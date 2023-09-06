@@ -360,7 +360,8 @@ class ColliderCheck:
     @lru_cache(maxsize=20)
     def compute_separation_variables(self, ip="ip1", beam_weak="b1"):
         """This function computes all the variables needed to compute the separation at the
-        requested IP, in a weak-strong setting. The variables are stored and return in a dictionnary.
+        requested IP, in a weak-strong setting. The variables are stored and returned in a
+        dictionnary.
         """
 
         # Get variables specific to the requested IP
@@ -426,6 +427,92 @@ class ColliderCheck:
         }
 
         return dic_separation
+
+    def return_dic_position_all_ips(self):
+        """This function computes all the variables needed to compute the position of the beam in
+        all IRs. The variables are stored and returne in a dictionnary. The extreme positions are:
+        IP1 : mqy.4l1.b1 to mqy.4r1.b1
+        IP2 : mqy.b5l2.b1 to mqy.b4r2.b1
+        IP5 : mqy.4l5.b1 to mqy.4r5.b1
+        IP8 : mqy.b4l8.b1 to mqy.b4r8.b1
+        """
+        dic_larger_separation_ip = {"lhcb1": {"sv": {}, "tw": {}}, "lhcb2": {"sv": {}, "tw": {}}}
+        for beam in ("lhcb1", "lhcb2"):
+            for ip, el_start, el_end in zip(
+                ["ip1", "ip2", "ip5", "ip8"],
+                ["mqy.4l1", "mqy.b4l2", "mqy.4l5", "mqy.b4l8"],
+                ["mqy.4r1", "mqy.b4r2", "mqy.4r5", "mqy.b4r8"],
+            ):
+                # Change element name for current beam
+                el_start = f"{el_start}.{beam[3:]}"
+                el_end = f"{el_end}.{beam[3:]}"
+
+                # Recompute survey near IP
+                if beam == "lhcb1":
+                    df_sv = (
+                        self.collider[beam].survey(element0=ip).rows[el_start:el_end].to_pandas()
+                    )
+                    df_tw = self.tw_b1.rows[el_start:el_end].to_pandas()
+                else:
+                    df_sv = (
+                        self.collider[beam]
+                        .survey(element0=ip)
+                        .reverse()
+                        .rows[el_start:el_end]
+                        .to_pandas()
+                    )
+                    df_tw = self.tw_b2.reverse().rows[el_start:el_end].to_pandas()
+
+                # Store dataframe of elements between s_start and s_end
+                dic_larger_separation_ip[beam]["sv"][ip] = df_sv
+                dic_larger_separation_ip[beam]["tw"][ip] = df_tw
+
+                # Delete all .b1 and .b2 from element names
+                for tw_sv in ("sv", "tw"):
+                    dic_larger_separation_ip[beam][tw_sv][ip].loc[:, "name"] = [
+                        el.replace(f".{beam[3:]}", "").replace(f"{beam[3:]}_", "")
+                        for el in dic_larger_separation_ip[beam][tw_sv][ip].name
+                    ]
+
+        for ip in ["ip1", "ip2", "ip5", "ip8"]:
+            # Get intersection of names in twiss and survey
+            s_intersection = (
+                set(dic_larger_separation_ip["lhcb2"]["sv"][ip].name)
+                .intersection(set(dic_larger_separation_ip["lhcb1"]["sv"][ip].name))
+                .intersection(set(dic_larger_separation_ip["lhcb2"]["tw"][ip].name))
+                .intersection(set(dic_larger_separation_ip["lhcb1"]["tw"][ip].name))
+            )
+
+            for tw_sv in ("sv", "tw"):
+                # Clean dataframes in both beams so that they are comparable
+                for beam in ["lhcb1", "lhcb2"]:
+                    # Remove all rows whose name is not in both beams
+                    dic_larger_separation_ip[beam][tw_sv][ip] = dic_larger_separation_ip[beam][
+                        tw_sv
+                    ][ip][dic_larger_separation_ip[beam][tw_sv][ip].name.isin(s_intersection)]
+
+                    # Remove all elements whose name contains '..'
+                    for i in range(1, 6):
+                        dic_larger_separation_ip[beam][tw_sv][ip] = dic_larger_separation_ip[beam][
+                            tw_sv
+                        ][ip][
+                            ~dic_larger_separation_ip[beam][tw_sv][ip].name.str.endswith(f"..{i}")
+                        ]
+
+                # Center s around IP for beam 1
+                dic_larger_separation_ip["lhcb1"][tw_sv][ip].loc[:, "s"] = (
+                    dic_larger_separation_ip["lhcb1"][tw_sv][ip].loc[:, "s"]
+                    - dic_larger_separation_ip["lhcb1"][tw_sv][ip][
+                        dic_larger_separation_ip["lhcb1"][tw_sv][ip].name == ip
+                    ].s.to_numpy()
+                )
+
+                # Set the s of beam 1 as reference for all dataframes
+                dic_larger_separation_ip["lhcb2"][tw_sv][ip].loc[:, "s"] = dic_larger_separation_ip[
+                    "lhcb1"
+                ][tw_sv][ip].s.to_numpy()
+
+        return dic_larger_separation_ip
 
     def plot_orbits(self, ip="ip1", beam_weak="b1"):
         """Plots the beams orbits at the requested IP."""
