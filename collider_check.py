@@ -4,6 +4,7 @@ import json
 import xtrack as xt
 import yaml
 from scipy import constants
+import os
 from functools import lru_cache
 import matplotlib.pyplot as plt
 
@@ -119,9 +120,24 @@ class ColliderCheck:
             "mask_with_filling_pattern"
         ]["pattern_fname"]
 
-        # Load the scheme (two boolean arrays representing the buckets in the two beams)
-        with open(self.path_filling_scheme) as fid:
-            filling_scheme = json.load(fid)
+        # Check if filling scheme file exists, and replace it by local if not
+        if os.path.isfile(self.path_filling_scheme):
+            # Load the scheme (two boolean arrays representing the buckets in the two beams)
+            with open(self.path_filling_scheme) as fid:
+                filling_scheme = json.load(fid)
+        elif os.path.isfile("collider/" + self.path_filling_scheme.split("/")[-1]):
+            print(
+                "Filling scheme file could not be loaded from the path in the configuration."
+                " Loading it locally."
+            )
+            self.path_filling_scheme = "collider/" + self.path_filling_scheme.split("/")[-1]
+            with open(self.path_filling_scheme) as fid:
+                filling_scheme = json.load(fid)
+        else:
+            raise ValueError(
+                "Filling scheme file could not be loaded from the path in the configuration or"
+                " locally."
+            )
 
         self.array_b1 = np.array(filling_scheme["beam1"])
         self.array_b2 = np.array(filling_scheme["beam2"])
