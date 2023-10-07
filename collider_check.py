@@ -62,7 +62,7 @@ class ColliderCheck:
                 "config_collider": self.configuration,
                 "config_mad": {},
             }
-            self.configuration_str = yaml.dump(self.configuration)
+        self.configuration_str = yaml.dump(self.configuration)
 
         # Compute luminosity and filling schemes attributes
         self._load_configuration_luminosity()
