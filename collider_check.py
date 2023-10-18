@@ -50,7 +50,8 @@ class ColliderCheck:
 
     @configuration.setter
     def configuration(self, configuration_dict):
-        """This function is used to update the configuration, and the attributes that depend on it."""
+        """This function is used to update the configuration, and the attributes that depend on it.
+        """
         self._configuration = configuration_dict
         self._update_attributes_configuration()
 
@@ -94,24 +95,9 @@ class ColliderCheck:
             )
 
     def _load_configuration_luminosity(self):
-        if (
-            "num_particles_per_bunch_after_optimization"
-            in self.configuration["config_collider"]["config_beambeam"]
-        ):
-            self.num_particles_per_bunch = float(
-                self.configuration["config_collider"]["config_beambeam"][
-                    "num_particles_per_bunch_after_optimization"
-                ]
-            )
-        else:
-            print(
-                "Warning: no num_particles_per_bunch_after_optimization provided in the config"
-                " file. Using the one from the configuration before optimization."
-            )
-            self.num_particles_per_bunch = float(
-                self.configuration["config_collider"]["config_beambeam"]["num_particles_per_bunch"]
-            )
-
+        self.num_particles_per_bunch = float(
+            self.configuration["config_collider"]["config_beambeam"]["num_particles_per_bunch"]
+        )
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
@@ -402,18 +388,25 @@ class ColliderCheck:
         ) = self._compute_emittances_separation()
 
         # Get normalized separation
-        d_x_weak_strong_in_meter, d_y_weak_strong_in_meter, dx_sig, dy_sig, A_w_s, B_w_s, fw, r = (
-            self._compute_ip_specific_normalized_separation(
-                twiss_filtered,
-                beam_weak,
-                beam_strong,
-                emittance_strong_x,
-                emittance_strong_y,
-                emittance_weak_x,
-                emittance_weak_y,
-                d_x_weak_strong_in_meter,
-                d_y_weak_strong_in_meter,
-            )
+        (
+            d_x_weak_strong_in_meter,
+            d_y_weak_strong_in_meter,
+            dx_sig,
+            dy_sig,
+            A_w_s,
+            B_w_s,
+            fw,
+            r,
+        ) = self._compute_ip_specific_normalized_separation(
+            twiss_filtered,
+            beam_weak,
+            beam_strong,
+            emittance_strong_x,
+            emittance_strong_y,
+            emittance_weak_x,
+            emittance_weak_y,
+            d_x_weak_strong_in_meter,
+            d_y_weak_strong_in_meter,
         )
 
         # Stora all variables used dor separation computation in a dictionnary
