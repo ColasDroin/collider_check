@@ -50,8 +50,7 @@ class ColliderCheck:
 
     @configuration.setter
     def configuration(self, configuration_dict):
-        """This function is used to update the configuration, and the attributes that depend on it.
-        """
+        """This function is used to update the configuration, and the attributes that depend on it."""
         self._configuration = configuration_dict
         self._update_attributes_configuration()
 
@@ -471,6 +470,12 @@ class ColliderCheck:
                         .to_pandas()
                     )
                     df_tw = self.tw_b2.reverse().rows[el_start:el_end].to_pandas()
+
+                # Remove entry and exit elements
+                df_tw = df_tw[~df_tw["name"].str.contains("entry")]
+                df_tw = df_tw[~df_tw["name"].str.contains("exit")]
+                df_sv = df_sv[~df_sv["name"].str.contains("entry")]
+                df_sv = df_sv[~df_sv["name"].str.contains("exit")]
 
                 # Store dataframe of elements between s_start and s_end
                 dic_larger_separation_ip[beam]["sv"][ip] = df_sv
