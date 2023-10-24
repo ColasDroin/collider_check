@@ -43,8 +43,8 @@ class ColliderCheck:
         else:
             # Get the corresponding configuration if it's there
             if hasattr(self.collider, "metadata"):
-                self._configuration = self.collider.metadata
-                self._update_attributes_configuration()
+                if self.collider.metadata != {}:
+                    self.configuration = self.collider.metadata
 
         return self._configuration
 
