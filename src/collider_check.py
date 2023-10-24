@@ -1,4 +1,6 @@
-#### Imports
+# ==================================================================================================
+# --- Imports
+# ==================================================================================================
 import numpy as np
 import json
 import xtrack as xt
@@ -9,6 +11,9 @@ from functools import lru_cache
 import matplotlib.pyplot as plt
 
 
+# ==================================================================================================
+# --- Class definition
+# ==================================================================================================
 class ColliderCheck:
     def __init__(self, collider):
         """Initialize the ColliderCheck class directly from a collider, potentially embedding a
@@ -100,7 +105,7 @@ class ColliderCheck:
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
-        # Then get the filling scheme path (should already be an absolute path)
+        # Get the filling scheme path (should already be an absolute path)
         self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
             "mask_with_filling_pattern"
         ]["pattern_fname"]
@@ -630,23 +635,14 @@ class ColliderCheck:
         return str_file
 
 
+# ==================================================================================================
+# --- Main script
+# ==================================================================================================
 if __name__ == "__main__":
-    path_collider = "/afs/cern.ch/work/c/cdroin/private/example_DA_study/master_study/scans/all_optics_2023/collider_03/xtrack_0000/collider.json"
-    with open(path_collider, "r") as fid:
-        collider_dict = json.load(fid)
-    if "config_yaml" in collider_dict:
-        print("A configuration has been found in the collider file. Using it.")
-        config = collider_dict["config_yaml"]
-    else:
-        print(
-            "Warning, you provided a collider file without a configuration. Some features of"
-            " the dashboard will be missing."
-        )
-
-    collider = xt.Multiline.from_dict(collider_dict)
-    collider.metadata = config
+    path_collider = "../test_data/collider.json"
+    collider = xt.Multiline.from_json(path_collider)
     collider.build_trackers()
 
     # Do collider check
     collider_check = ColliderCheck(collider=collider)
-    print(collider_check.output_check_as_str(path_output="check.txt"))
+    print(collider_check.output_check_as_str(path_output="../output/check.txt"))
