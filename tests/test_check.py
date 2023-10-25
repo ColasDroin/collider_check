@@ -1,3 +1,6 @@
+# ==================================================================================================
+# --- Imports
+# ==================================================================================================
 # Imports from the standard library
 import pytest
 import numpy as np
@@ -12,18 +15,9 @@ import xtrack as xt
 # Import the module to test
 from src.collider_check import ColliderCheck
 
-# Do not use collider_check as a fixture since it's heavy to load
-# @pytest.fixture
-# def collider_check():
-#     # Load collider as test data
-#     path_collider = "test_data/collider.json"
-#     collider = xt.Multiline.from_json(path_collider)
-
-#     # Build collider_check object
-#     collider.build_trackers()
-
-#     return ColliderCheck(collider=collider)
-
+# ==================================================================================================
+# --- Script to load (heavy) data
+# ==================================================================================================
 
 # Load collider as test data
 path_collider = "test_data/collider.json"
@@ -37,6 +31,22 @@ collider_check = ColliderCheck(collider=collider)
 path_data = "test_data/config.yaml"
 with open(path_data, "r") as stream:
     initial_configuration = yaml.safe_load(stream)
+
+# ==================================================================================================
+# --- Tests
+# ==================================================================================================
+
+# Do not use collider_check as a fixture since it's heavy to load
+# @pytest.fixture
+# def collider_check():
+#     # Load collider as test data
+#     path_collider = "test_data/collider.json"
+#     collider = xt.Multiline.from_json(path_collider)
+
+#     # Build collider_check object
+#     collider.build_trackers()
+
+#     return ColliderCheck(collider=collider)
 
 
 def test_configuration():
