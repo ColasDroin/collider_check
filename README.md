@@ -8,3 +8,8 @@ debugging purposes before/after tracking, and used as a backend of the [simulati
 
 ## Installation
 
+The package is available from PyPI, so you can install it with pip:
+
+```bash
+pip install collider-check
+```
