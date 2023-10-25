@@ -1,0 +1,10 @@
+numpy
+xtrack
+pyyaml
+scipy
+matplotlib
+
+[dev]
+black
+pytest
+pandas

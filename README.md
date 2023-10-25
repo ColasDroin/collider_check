@@ -13,3 +13,18 @@ The package is available from PyPI, so you can install it with pip:
 ```bash
 pip install collider-check
 ```
+
+## Usage
+
+You can import the package in your python script and load a collider with:
+
+```python
+import collider_check
+check = collider_check.from_json("path/to/collider.json")
+```
+
+To get a quick summary of the collider observables, use:
+
+```python
+check.output_check_as_str('output.txt')
+```
