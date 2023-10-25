@@ -1,51 +1,88 @@
+# Imports from the standard library
 import pytest
 import numpy as np
 import sys
-
-print(sys.path)
-from src.collider_check import ColliderCheck
-import xtrack as xt
+import yaml
 import copy
+
+# Third party imports
+import xtrack as xt
+
+# Import the module to test
+from src.collider_check import ColliderCheck
+
+# Do not use collider_check as a fixture since it's heavy to load
+# @pytest.fixture
+# def collider_check():
+#     # Load collider as test data
+#     path_collider = "test_data/collider.json"
+#     collider = xt.Multiline.from_json(path_collider)
+
+#     # Build collider_check object
+#     collider.build_trackers()
+
+#     return ColliderCheck(collider=collider)
+
 
 # Load collider as test data
 path_collider = "test_data/collider.json"
 collider = xt.Multiline.from_json(path_collider)
+
+# Build collider_check object
 collider.build_trackers()
 collider_check = ColliderCheck(collider=collider)
-configuration = copy.deepcopy(collider_check.configuration)
-print(configuration)
 
-# def test_configuration(collider_check):
-#     # Test the configuration getter and setter
-#     config_dict = {"key": "value"}
-#     collider_check.configuration = config_dict
-#     assert collider_check.configuration == config_dict
-
-#     # Test that the configuration is either None or a dictionnary
-#     collider_check.configuration = configuration
-#     assert collider_check.configuration is None or isinstance(collider_check.configuration, dict)
+# # Load independently configuration (normally identical, except for casting and path to filling scheme)
+path_data = "test_data/config.yaml"
+with open(path_data, "r") as stream:
+    initial_configuration = yaml.safe_load(stream)
 
 
-# def test_nemitt_x(collider_check):
-#     # Test type returned
-#     assert isinstance(collider_check.nemitt_x, float)
+def test_configuration():
+    # Save the intial configuration
+    configuration = copy.deepcopy(collider_check.configuration)
+
+    # Test that the configuration is either None or a dictionnary
+    collider_check.configuration = configuration
+    assert collider_check.configuration is None or isinstance(collider_check.configuration, dict)
+
+    # Test the configuration getter and setter
+    collider_check.configuration = initial_configuration
+    assert collider_check.configuration == initial_configuration
+
+    # Test that the configuration is either None or a dictionnary
+    collider_check.configuration = configuration
+    assert collider_check.configuration is None or isinstance(collider_check.configuration, dict)
 
 
-# def test_nemitt_y(collider_check):
-#     # Test type returned
-#     assert isinstance(collider_check.nemitt_y, float)
+def test_nemitt_x_y():
+    # Test type returned
+    assert isinstance(collider_check.nemitt_x, float)
+    assert isinstance(collider_check.nemitt_y, float)
+
+    print(initial_configuration["config_collider"])
+
+    # Test values
+    assert np.allclose(
+        collider_check.nemitt_x,
+        initial_configuration["config_collider"]["config_beambeam"]["nemitt_x"],
+    )
+    assert np.allclose(
+        collider_check.nemitt_y,
+        initial_configuration["config_collider"]["config_beambeam"]["nemitt_y"],
+    )
 
 
-# def test_return_number_of_collisions(collider_check):
-#     # Test type returned
-#     assert isinstance(collider_check.return_number_of_collisions(), int)
-#     # Get the expected number of collisions from the filling scheme
-#     l_expected_number_of_collisions = configuration.path_filling_schemes.split("/")[-1].split("_")[
-#         2:5
-#     ]
-#     assert l_expected_number_of_collisions[0] == collider_check.return_number_of_collisions(IP=1)
-#     assert l_expected_number_of_collisions[1] == collider_check.return_number_of_collisions(IP=2)
-#     assert l_expected_number_of_collisions[2] == collider_check.return_number_of_collisions(IP=8)
+def test_return_number_of_collisions():
+    # Test type returned
+    assert isinstance(collider_check.return_number_of_collisions(), int)
+    # Get the expected number of collisions from the filling scheme
+    l_expected_number_of_collisions = collider_check.configuration.path_filling_schemes.split("/")[
+        -1
+    ].split("_")[2:5]
+    assert l_expected_number_of_collisions[0] == collider_check.return_number_of_collisions(IP=1)
+    assert l_expected_number_of_collisions[1] == collider_check.return_number_of_collisions(IP=2)
+    assert l_expected_number_of_collisions[2] == collider_check.return_number_of_collisions(IP=8)
 
 
 # def test_return_luminosity(collider_check):
