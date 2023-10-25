@@ -151,9 +151,9 @@ class ColliderCheck:
         if IP == 1 or IP == 5:
             return self.array_b1 @ self.array_b2
         elif IP == 2:
-            return np.roll(self.array_b1, -891) @ self.array_b2
+            return np.roll(self.array_b1, 891) @ self.array_b2
         elif IP == 8:
-            return np.roll(self.array_b1, -2670) @ self.array_b2
+            return np.roll(self.array_b1, 2670) @ self.array_b2
         else:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
 
