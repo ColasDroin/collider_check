@@ -1,3 +1,7 @@
+"""A minimal set of unit tests to ensure no bug is raised when calling any (public) function of the 
+package. This is not meant to be an exhaustive test of the package (the behaviour of each function 
+is not tested under a large variety of inputs)."""
+
 # ==================================================================================================
 # --- Imports
 # ==================================================================================================
