@@ -5,3 +5,6 @@ __pycache__/
 .mypy_cache/
 .vscode/settings.json
 .pytest_cache/
+
+# Distribution / packaging
+src/*.egg-info
