@@ -4,6 +4,7 @@
 import json
 import os
 from functools import lru_cache
+from importlib.resources import files
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -116,19 +117,35 @@ class ColliderCheck:
             # Load the scheme (two boolean arrays representing the buckets in the two beams)
             with open(self.path_filling_scheme) as fid:
                 filling_scheme = json.load(fid)
-        elif os.path.isfile("data/" + self.path_filling_scheme.split("/")[-1]):
-            print(
-                "Filling scheme file could not be loaded from the path in the configuration."
-                " Loading it locally."
-            )
-            self.path_filling_scheme = "data/" + self.path_filling_scheme.split("/")[-1]
-            with open(self.path_filling_scheme) as fid:
-                filling_scheme = json.load(fid)
+
+        # Else check if it is called from data folder of collider_dashboard
         else:
-            raise ValueError(
-                "Filling scheme file could not be loaded from the path in the configuration or"
-                " locally."
-            )
+            try:
+                package_path = str(files("collider_dashboard"))
+            except NameError:
+                print(
+                    "collider_dashboard not installed... Skipping loading filling scheme locally."
+                )
+                raise ValueError(
+                    "Filling scheme file could not be loaded from the path in the configuration or"
+                    " locally."
+                )
+            if os.path.isfile(package_path + "/data/" + self.path_filling_scheme.split("/")[-1]):
+                print(
+                    "Filling scheme file could not be loaded from the path in the configuration."
+                    " Loading it locally."
+                )
+                self.path_filling_scheme = (
+                    package_path + "/data/" + self.path_filling_scheme.split("/")[-1]
+                )
+
+                with open(self.path_filling_scheme) as fid:
+                    filling_scheme = json.load(fid)
+            else:
+                raise ValueError(
+                    "Filling scheme file could not be loaded from the path in the configuration or"
+                    " locally."
+                )
 
         self.array_b1 = np.array(filling_scheme["beam1"])
         self.array_b2 = np.array(filling_scheme["beam2"])
