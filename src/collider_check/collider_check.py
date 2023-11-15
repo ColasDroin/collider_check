@@ -121,7 +121,7 @@ class ColliderCheck:
                 "Filling scheme file could not be loaded from the path in the configuration."
                 " Loading it locally."
             )
-            self.path_filling_scheme = "collider/" + self.path_filling_scheme.split("/")[-1]
+            self.path_filling_scheme = "data/" + self.path_filling_scheme.split("/")[-1]
             with open(self.path_filling_scheme) as fid:
                 filling_scheme = json.load(fid)
         else:
