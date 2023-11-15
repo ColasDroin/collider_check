@@ -1,9 +1,10 @@
 # Package version
-__version__ = "0.1.2"
+__version__ = "0.1.3"
+
+import xtrack as xt
 
 # Import ColliderCheck class in the namespace
 from .collider_check import ColliderCheck
-import xtrack as xt
 
 
 def from_json(path):
@@ -50,4 +51,5 @@ def from_collider(collider):
     except:
         "No trackers to build."
 
+    return ColliderCheck(collider=collider)
     return ColliderCheck(collider=collider)

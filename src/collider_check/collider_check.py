@@ -1,14 +1,15 @@
 # ==================================================================================================
 # --- Imports
 # ==================================================================================================
-import numpy as np
 import json
+import os
+from functools import lru_cache
+
+import matplotlib.pyplot as plt
+import numpy as np
 import xtrack as xt
 import yaml
 from scipy import constants
-import os
-from functools import lru_cache
-import matplotlib.pyplot as plt
 
 
 # ==================================================================================================
@@ -115,7 +116,7 @@ class ColliderCheck:
             # Load the scheme (two boolean arrays representing the buckets in the two beams)
             with open(self.path_filling_scheme) as fid:
                 filling_scheme = json.load(fid)
-        elif os.path.isfile("collider/" + self.path_filling_scheme.split("/")[-1]):
+        elif os.path.isfile("data/" + self.path_filling_scheme.split("/")[-1]):
             print(
                 "Filling scheme file could not be loaded from the path in the configuration."
                 " Loading it locally."
@@ -645,4 +646,5 @@ if __name__ == "__main__":
 
     # Do collider check
     collider_check = ColliderCheck(collider=collider)
+    print(collider_check.output_check_as_str(path_output="../output/check.txt"))
     print(collider_check.output_check_as_str(path_output="../output/check.txt"))
