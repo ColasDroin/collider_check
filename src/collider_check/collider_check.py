@@ -17,12 +17,15 @@ from scipy import constants
 # --- Class definition
 # ==================================================================================================
 class ColliderCheck:
-    def __init__(self, collider):
+    def __init__(self, collider, path_filling_scheme = None):
         """Initialize the ColliderCheck class directly from a collider, potentially embedding a
         configuration file."""
 
         # Store the collider
         self.collider = collider
+
+        # Store the filling scheme path
+        self.path_filling_scheme = path_filling_scheme
 
         # Define the configuration through a property since it might not be there
         self._configuration = None
@@ -107,45 +110,44 @@ class ColliderCheck:
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
-        # Get the filling scheme path (should already be an absolute path)
-        self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
-            "mask_with_filling_pattern"
-        ]["pattern_fname"]
 
-        # Check if filling scheme file exists, and replace it by local if not
-        if os.path.isfile(self.path_filling_scheme):
-            # Load the scheme (two boolean arrays representing the buckets in the two beams)
-            with open(self.path_filling_scheme) as fid:
-                filling_scheme = json.load(fid)
+        if self.path_filling_scheme is None
+            # Get the filling scheme path (should already be an absolute path)
+            self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
+                "mask_with_filling_pattern"
+            ]["pattern_fname"]
 
-        # Else check if it is called from data folder of collider_dashboard
-        else:
-            try:
-                package_path = str(files("collider_dashboard"))
-            except NameError:
-                print(
-                    "collider_dashboard not installed... Skipping loading filling scheme locally."
-                )
-                raise ValueError(
-                    "Filling scheme file could not be loaded from the path in the configuration or"
-                    " locally."
-                )
-            if os.path.isfile(package_path + "/data/" + self.path_filling_scheme.split("/")[-1]):
-                print(
-                    "Filling scheme file could not be loaded from the path in the configuration."
-                    " Loading it locally."
-                )
-                self.path_filling_scheme = (
-                    package_path + "/data/" + self.path_filling_scheme.split("/")[-1]
-                )
+            # Check if filling scheme file exists, and replace it by local if not
+            if os.path.isfile(self.path_filling_scheme):
+                pass
 
-                with open(self.path_filling_scheme) as fid:
-                    filling_scheme = json.load(fid)
+
+            # Else check if it is called from data folder of collider_dashboard
             else:
-                raise ValueError(
-                    "Filling scheme file could not be loaded from the path in the configuration or"
-                    " locally."
-                )
+                try:
+                    package_path = str(files("collider_dashboard"))
+                except NameError:
+                    raise ValueError(
+                        "collider_dashboard not installed... Filling scheme file could not be loaded from the path in the configuration or locally."
+                    )
+                if os.path.isfile(package_path + "/data/" + self.path_filling_scheme.split("/")[-1]):
+                    print(
+                        "Filling scheme file could not be loaded from the path in the configuration."
+                        " Loading it locally."
+                    )
+                    self.path_filling_scheme = (
+                        package_path + "/data/" + self.path_filling_scheme.split("/")[-1]
+                    )
+                else:
+                    raise ValueError(
+                        "Filling scheme file could not be loaded from the path in the configuration or"
+                        " locally."
+                    )
+                
+        # Load the scheme (two boolean arrays representing the buckets in the two beams)
+        with open(self.path_filling_scheme) as fid:
+            filling_scheme = json.load(fid)
+
 
         self.array_b1 = np.array(filling_scheme["beam1"])
         self.array_b2 = np.array(filling_scheme["beam2"])

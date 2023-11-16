@@ -7,7 +7,7 @@ include-package-data = false
 
 [project]
 name = "collider-check"
-version = "0.1.4"
+version = "0.1.5"
 description = "A small package that provides functions to check the observables in a collider, using a collider built with Xsuite."
 readme = "README.md"
 authors = [{ name = "Colas Droin", email = "colas.noe.droin@cern.ch" }]
