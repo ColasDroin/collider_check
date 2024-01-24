@@ -196,7 +196,7 @@ class ColliderCheck:
                     "on_crab1"
                 ]
             )
-            if crab_val > 0:
+            if abs(crab_val) > 0:
                 crab = True
 
         if IP not in [1, 2, 5, 8]:

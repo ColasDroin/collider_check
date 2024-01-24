@@ -8,3 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 src/*.egg-info
+
+# Notebook folder
+notebook/
