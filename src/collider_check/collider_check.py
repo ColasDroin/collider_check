@@ -17,7 +17,7 @@ from scipy import constants
 # --- Class definition
 # ==================================================================================================
 class ColliderCheck:
-    def __init__(self, collider, path_filling_scheme=None):
+    def __init__(self, collider, path_filling_scheme=None, type_particles="proton"):
         """Initialize the ColliderCheck class directly from a collider, potentially embedding a
         configuration file."""
 
@@ -26,6 +26,18 @@ class ColliderCheck:
 
         # Store the filling scheme path
         self.path_filling_scheme = path_filling_scheme
+        
+        # Check the type of particles and store
+        if type_particles in ["proton", "lead"]:
+            self.type_particles = type_particles
+        else:
+            raise ValueError("type_particles must be either 'proton' or 'lead'.") 
+        
+        # Record cross-section correspondinlgy
+        if self.type_particles == "proton":
+            self.cross_section = 81e-27
+        elif self.type_particles == "lead":
+            self.cross_section = 281e-24
 
         # Define the configuration through a property since it might not be there
         self._configuration = None
@@ -50,12 +62,9 @@ class ColliderCheck:
 
         if self._configuration is not None:
             return self._configuration
-        else:
-            # Get the corresponding configuration if it's there
-            if hasattr(self.collider, "metadata"):
-                if self.collider.metadata != {}:
-                    self.configuration = self.collider.metadata
-
+        # Get the corresponding configuration if it's there
+        if hasattr(self.collider, "metadata") and self.collider.metadata != {}:
+            self.configuration = self.collider.metadata
         return self._configuration
 
     @configuration.setter
@@ -85,17 +94,15 @@ class ColliderCheck:
     def nemitt_x(self):
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
-        else:
-            print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_x.")
-            return 2.2e-6
+        print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_x.")
+        return 2.2e-6
 
     @property
     def nemitt_y(self):
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
-        else:
-            print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.")
-            return 2.2e-6
+        print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.")
+        return 2.2e-6
 
     def _check_configuration(self):
         if self.configuration is None:
@@ -118,27 +125,25 @@ class ColliderCheck:
             ]["pattern_fname"]
 
             # Check if filling scheme file exists, and replace it by local if not
-            if os.path.isfile(self.path_filling_scheme):
-                pass
-
-            # Else check if it is called from data folder of collider_dashboard
-            else:
+            if not os.path.isfile(self.path_filling_scheme):
                 try:
                     package_path = str(files("collider_dashboard"))
-                except NameError:
+                except NameError as e:
                     raise ValueError(
                         "collider_dashboard not installed... Filling scheme file could not be"
                         " loaded from the path in the configuration or locally."
-                    )
+                    ) from e
                 if os.path.isfile(
-                    package_path + "/data/" + self.path_filling_scheme.split("/")[-1]
+                    f"{package_path}/data/"
+                    + self.path_filling_scheme.split("/")[-1]
                 ):
                     print(
                         "Filling scheme file could not be loaded from the path in the"
                         " configuration. Loading it locally."
                     )
                     self.path_filling_scheme = (
-                        package_path + "/data/" + self.path_filling_scheme.split("/")[-1]
+                        f"{package_path}/data/"
+                        + self.path_filling_scheme.split("/")[-1]
                     )
                 else:
                     raise ValueError(
@@ -169,7 +174,7 @@ class ColliderCheck:
 
         # Assert that the arrays have the required length, and do the convolution
         assert len(self.array_b1) == len(self.array_b2) == 3564
-        if IP == 1 or IP == 5:
+        if IP in [1, 5]:
             return self.array_b1 @ self.array_b2
         elif IP == 2:
             return np.roll(self.array_b1, 891) @ self.array_b2
@@ -202,10 +207,10 @@ class ColliderCheck:
         if IP not in [1, 2, 5, 8]:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
         n_col = self.return_number_of_collisions(IP=IP)
-        luminosity = xt.lumi.luminosity_from_twiss(
+        return xt.lumi.luminosity_from_twiss(
             n_colliding_bunches=n_col,
             num_particles_per_bunch=self.num_particles_per_bunch,
-            ip_name="ip" + str(IP),
+            ip_name=f"ip{str(IP)}",
             nemitt_x=self.nemitt_x,
             nemitt_y=self.nemitt_y,
             sigma_z=self.sigma_z,
@@ -213,7 +218,6 @@ class ColliderCheck:
             twiss_b2=self.tw_b2,
             crab=crab,
         )
-        return luminosity
 
     def return_twiss_at_ip(self, beam=1, ip=1):
         """Returns the twiss parameters, position and angle at the requested IP."""
@@ -285,15 +289,15 @@ class ColliderCheck:
             survey_weak = self.dic_survey_per_ip["lhcb2"]
             survey_strong = self.dic_survey_per_ip["lhcb1"]
 
-        # Filter the twiss and surveys at the requested IP
-        survey_filtered = {}
-        twiss_filtered = {}
         my_filter_string = f"bb_(ho|lr)\.(r|l|c){ip[2]}.*"
-        survey_filtered[beam_strong] = survey_strong[ip][["X", "Y", "Z"], my_filter_string]
-        survey_filtered[beam_weak] = survey_weak[ip][["X", "Y", "Z"], my_filter_string]
-        twiss_filtered[beam_strong] = twiss_strong[:, my_filter_string]
-        twiss_filtered[beam_weak] = twiss_weak[:, my_filter_string]
-
+        survey_filtered = {
+            beam_strong: survey_strong[ip][["X", "Y", "Z"], my_filter_string],
+            beam_weak: survey_weak[ip][["X", "Y", "Z"], my_filter_string],
+        }
+        twiss_filtered = {
+            beam_strong: twiss_strong[:, my_filter_string],
+            beam_weak: twiss_weak[:, my_filter_string],
+        }
         s = survey_filtered[beam_strong]["Z"]
         d_x_weak_strong_in_meter = (
             twiss_filtered[beam_weak]["x"]
@@ -319,10 +323,17 @@ class ColliderCheck:
         )
 
     def _compute_emittances_separation(self):
-        # gamma relativistic of a proton at 7 TeV
-        gamma_rel = self.energy / (
-            constants.physical_constants["proton mass energy equivalent in MeV"][0] / 1000
-        )
+        if self.type_particles == "proton":
+            # gamma relativistic of a proton
+            gamma_rel = self.energy / (
+                constants.physical_constants["proton mass energy equivalent in MeV"][0] / 1000
+            )
+        elif self.type_particles == "lead":
+            # gamma relativistic of a lead ion (value needs to be double-checked)
+            gamma_rel = self.energy / (193084.751 / 1000)
+        else:
+            raise ValueError("type_particles must be either 'proton' or 'lead'.")
+        
         # beta relativistic of a proton at 7 TeV
         beta_rel = np.sqrt(1 - 1 / gamma_rel**2)
 
@@ -434,8 +445,7 @@ class ColliderCheck:
             d_y_weak_strong_in_meter,
         )
 
-        # Stora all variables used dor separation computation in a dictionnary
-        dic_separation = {
+        return {
             "twiss_filtered": twiss_filtered,
             "survey_filtered": survey_filtered,
             "s": s,
@@ -459,8 +469,6 @@ class ColliderCheck:
             "beam_strong": beam_strong,
             "ip": ip,
         }
-
-        return dic_separation
 
     def return_dic_position_all_ips(self):
         """This function computes all the variables needed to compute the position of the beam in
@@ -594,12 +602,10 @@ class ColliderCheck:
 
     def output_check_as_str(self, path_output=None):
         """Summarizes the collider observables in a string, and optionally to a file."""
-        str_file = ""
-
         # Check tune and chromaticity
         qx_b1, dqx_b1, qy_b1, dqy_b1 = self.return_tune_and_chromaticity(beam=1)
         qx_b2, dqx_b2, qy_b2, dqy_b2 = self.return_tune_and_chromaticity(beam=2)
-        str_file += "Tune and chromaticity\n"
+        str_file = "" + "Tune and chromaticity\n"
         str_file += (
             f"Qx_b1 = {qx_b1:.4f}, Qy_b1 = {qy_b1:.4f}, dQx_b1 = {dqx_b1:.4f}, dQy_b1 ="
             f" {dqy_b1:.4f}\n"
