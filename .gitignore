@@ -11,3 +11,6 @@ src/*.egg-info
 
 # Notebook folder
 notebook/
+
+# Distribution
+dist/

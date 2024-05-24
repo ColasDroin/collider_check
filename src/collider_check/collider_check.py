@@ -103,6 +103,13 @@ class ColliderCheck:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
         print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.")
         return 2.2e-6
+    
+    @property
+    def n_lr_per_side(self):
+        if self.configuration is not None:
+            return self.configuration["config_collider"]["config_beambeam"]["num_long_range_encounters_per_side"]['ip1']
+        print("Warning: no configuration provided. Using default value of 1 for n_lr_per_side.")
+        return 16
 
     def _check_configuration(self):
         if self.configuration is None:
