@@ -26,13 +26,13 @@ class ColliderCheck:
 
         # Store the filling scheme path
         self.path_filling_scheme = path_filling_scheme
-        
+
         # Check the type of particles and store
         if type_particles in ["proton", "lead"]:
             self.type_particles = type_particles
         else:
-            raise ValueError("type_particles must be either 'proton' or 'lead'.") 
-        
+            raise ValueError("type_particles must be either 'proton' or 'lead'.")
+
         # Record cross-section correspondinlgy
         if self.type_particles == "proton":
             self.cross_section = 81e-27
@@ -103,11 +103,13 @@ class ColliderCheck:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
         print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.")
         return 2.2e-6
-    
+
     @property
     def n_lr_per_side(self):
         if self.configuration is not None:
-            return self.configuration["config_collider"]["config_beambeam"]["num_long_range_encounters_per_side"]['ip1']
+            return self.configuration["config_collider"]["config_beambeam"][
+                "num_long_range_encounters_per_side"
+            ]["ip1"]
         print("Warning: no configuration provided. Using default value of 1 for n_lr_per_side.")
         return 16
 
@@ -124,7 +126,6 @@ class ColliderCheck:
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
-
         if self.path_filling_scheme is None:
             # Get the filling scheme path (should already be an absolute path)
             self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
@@ -141,16 +142,14 @@ class ColliderCheck:
                         " loaded from the path in the configuration or locally."
                     ) from e
                 if os.path.isfile(
-                    f"{package_path}/data/"
-                    + self.path_filling_scheme.split("/")[-1]
+                    f"{package_path}/data/" + self.path_filling_scheme.split("/")[-1]
                 ):
                     print(
                         "Filling scheme file could not be loaded from the path in the"
                         " configuration. Loading it locally."
                     )
                     self.path_filling_scheme = (
-                        f"{package_path}/data/"
-                        + self.path_filling_scheme.split("/")[-1]
+                        f"{package_path}/data/" + self.path_filling_scheme.split("/")[-1]
                     )
                 else:
                     raise ValueError(
@@ -306,6 +305,11 @@ class ColliderCheck:
             beam_weak: twiss_weak[:, my_filter_string],
         }
         s = survey_filtered[beam_strong]["Z"]
+        # Compute if the beambeam element is on or off (list of 1 and 0)
+        l_scale_strength = [
+            self.collider["lhcb1"].element_refs[name_el].scale_strength._value
+            for name_el in twiss_filtered[beam_strong].name
+        ]
         d_x_weak_strong_in_meter = (
             twiss_filtered[beam_weak]["x"]
             - twiss_filtered[beam_strong]["x"]
@@ -327,6 +331,7 @@ class ColliderCheck:
             survey_filtered,
             d_x_weak_strong_in_meter,
             d_y_weak_strong_in_meter,
+            l_scale_strength,
         )
 
     def _compute_emittances_separation(self):
@@ -340,7 +345,7 @@ class ColliderCheck:
             gamma_rel = self.energy / (193084.751 / 1000)
         else:
             raise ValueError("type_particles must be either 'proton' or 'lead'.")
-        
+
         # beta relativistic of a proton at 7 TeV
         beta_rel = np.sqrt(1 - 1 / gamma_rel**2)
 
@@ -418,6 +423,7 @@ class ColliderCheck:
             survey_filtered,
             d_x_weak_strong_in_meter,
             d_y_weak_strong_in_meter,
+            l_scale_strength,
         ) = self._compute_ip_specific_separation(ip=ip, beam_weak=beam_weak)
 
         # Get emittances
@@ -475,6 +481,7 @@ class ColliderCheck:
             "beam_weak": beam_weak,
             "beam_strong": beam_strong,
             "ip": ip,
+            "l_scale_strength": l_scale_strength,
         }
 
     def return_dic_position_all_ips(self):
