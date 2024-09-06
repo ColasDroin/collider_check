@@ -307,8 +307,10 @@ class ColliderCheck:
         s = survey_filtered[beam_strong]["Z"]
         # Compute if the beambeam element is on or off (list of 1 and 0)
         l_scale_strength = [
-            self.collider[f"lhc{beam_strong}"].element_refs[name_el].scale_strength._value
-            * self.collider.vars["beambeam_scale"]._value
+            (
+                self.collider[f"lhc{beam_strong}"].vars[f"{name_el}_scale_strength"]._value
+                * self.collider.vars["beambeam_scale"]._value
+            )
             for name_el in twiss_filtered[beam_strong].name
         ]
         d_x_weak_strong_in_meter = (
