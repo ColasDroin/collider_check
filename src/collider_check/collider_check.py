@@ -297,12 +297,12 @@ class ColliderCheck:
 
         my_filter_string = f"bb_(ho|lr)\.(r|l|c){ip[2]}.*"
         survey_filtered = {
-            beam_strong: survey_strong[ip][["X", "Y", "Z"], my_filter_string],
-            beam_weak: survey_weak[ip][["X", "Y", "Z"], my_filter_string],
+            beam_strong: survey_strong[ip].rows[my_filter_string].cols[["X", "Y", "Z"]],
+            beam_weak: survey_weak[ip].rows[my_filter_string].cols[["X", "Y", "Z"]],
         }
         twiss_filtered = {
-            beam_strong: twiss_strong[:, my_filter_string],
-            beam_weak: twiss_weak[:, my_filter_string],
+            beam_strong: twiss_strong.rows[my_filter_string],
+            beam_weak: twiss_weak.rows[my_filter_string],
         }
         s = survey_filtered[beam_strong]["Z"]
         # Compute if the beambeam element is on or off (list of 1 and 0)
