@@ -65,6 +65,7 @@ class ColliderCheck:
         # Get the corresponding configuration if it's there
         if hasattr(self.collider, "metadata") and self.collider.metadata != {}:
             self.configuration = self.collider.metadata
+
         return self._configuration
 
     @configuration.setter
@@ -120,9 +121,19 @@ class ColliderCheck:
             )
 
     def _load_configuration_luminosity(self):
-        self.num_particles_per_bunch = float(
-            self.configuration["config_collider"]["config_beambeam"]["num_particles_per_bunch"]
-        )
+        if (
+            "final_num_particles_per_bunch"
+            in self.configuration["config_collider"]["config_beambeam"]
+        ):
+            self.num_particles_per_bunch = float(
+                self.configuration["config_collider"]["config_beambeam"][
+                    "final_num_particles_per_bunch"
+                ]
+            )
+        else:
+            self.num_particles_per_bunch = float(
+                self.configuration["config_collider"]["config_beambeam"]["num_particles_per_bunch"]
+            )
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
