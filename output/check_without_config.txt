@@ -1,0 +1,42 @@
+Tune and chromaticity
+Qx_b1 = 62.3046, Qy_b1 = 60.3153, dQx_b1 = 15.7794, dQy_b1 = 13.9058
+Qx_b2 = 62.3046, Qy_b2 = 60.3153, dQx_b2 = 15.2964, dQy_b2 = 14.7952
+
+
+Linear coupling
+C- b1 = 0.0030, C- b2 = 0.0034
+Momentum compaction factor
+alpha_p b1 = 0.0003, alpha_p b2 = 0.0003
+
+
+Twiss observables
+IP1 (beam 1)
+name          s             x      px             y           py     betx     bety        dx        dy
+ ip1 19994.1624 -1.560901e-09 0.00025 -1.045914e-08 9.549098e-08 0.146742 0.146326 -0.000661 -0.004484
+IP1 (beam 2)
+name         s            x       px            y            py     betx     bety       dx       dy
+ ip1 6664.7208 1.547707e-10 -0.00025 1.022617e-08 -5.228094e-08 0.142851 0.143822 0.000073 0.004045
+
+IP2 (beam 1)
+name            s         x           px             y      py     betx     bety        dx        dy
+ ip2 23326.598984 -0.000144 2.906208e-07 -3.536308e-08 -0.0001 9.875161 9.595054 -0.004281 -0.013588
+IP2 (beam 2)
+name           s         x            px            y      py      betx    bety        dx       dy
+ ip2 3332.436584 -0.000144 -2.917122e-07 2.101846e-08 -0.0001 10.279535 10.0619 -0.000256 0.009205
+
+IP5 (beam 1)
+name           s            x            px             y      py     betx     bety       dx        dy
+ ip5 6664.568433 1.527217e-09 -3.370357e-09 -1.315666e-08 0.00025 0.143128 0.145489 0.000631 -0.005727
+IP5 (beam 2)
+name            s            x            px            y      py     betx     bety       dx       dy
+ ip5 19994.010033 3.051285e-10 -1.095010e-09 1.061069e-08 0.00025 0.148119 0.144453 0.000127 0.004052
+
+IP8 (beam 1)
+name            s         x       px        y       py     betx     bety        dx        dy
+ ip8 16650.658184 -0.000023 0.000135 0.000018 0.000172 1.446006 1.463156 -0.002513 -0.007123
+IP8 (beam 2)
+name            s         x        px         y       py     betx    bety       dx        dy
+ ip8 10008.377384 -0.000023 -0.000135 -0.000018 0.000172 1.505175 1.43905 0.000268 -0.002375
+
+
+

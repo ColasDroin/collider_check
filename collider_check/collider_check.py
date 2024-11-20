@@ -2,6 +2,7 @@
 # --- Imports
 # ==================================================================================================
 import json
+import logging
 import os
 from functools import lru_cache
 from importlib.resources import files
@@ -9,7 +10,6 @@ from importlib.resources import files
 import matplotlib.pyplot as plt
 import numpy as np
 import xtrack as xt
-import yaml
 from scipy import constants
 
 
@@ -17,7 +17,7 @@ from scipy import constants
 # --- Class definition
 # ==================================================================================================
 class ColliderCheck:
-    def __init__(self, collider, path_filling_scheme=None, type_particles="proton"):
+    def __init__(self, collider, path_filling_scheme=None, type_particles=None):
         """Initialize the ColliderCheck class directly from a collider, potentially embedding a
         configuration file."""
 
@@ -27,21 +27,12 @@ class ColliderCheck:
         # Store the filling scheme path
         self.path_filling_scheme = path_filling_scheme
 
-        # Check the type of particles and store
-        if type_particles in ["proton", "lead"]:
-            self.type_particles = type_particles
-        else:
-            raise ValueError("type_particles must be either 'proton' or 'lead'.")
-
-        # Record cross-section correspondinlgy
-        if self.type_particles == "proton":
-            self.cross_section = 81e-27
-        elif self.type_particles == "lead":
-            self.cross_section = 281e-24
-
         # Define the configuration through a property since it might not be there
         self._configuration = None
         self.configuration_str = None
+
+        # Define the type of particles
+        self._type_particles = type_particles
 
         # Beam energy
         self.energy = self.collider.lhcb1.particle_ref._p0c[0] / 1e9
@@ -74,15 +65,14 @@ class ColliderCheck:
         self._configuration = configuration_dict
         self._update_attributes_configuration()
 
+    def _raise_no_configuration_error(self):
+        raise ValueError(
+            "No configuration has been provided when instantiating the ColliderCheck object."
+        )
+
     def _update_attributes_configuration(self):
-        # Ensure that the configuration format is correct
-        if "config_collider" not in self.configuration:
-            print("Warning, the provided configuration doesn't embed mad configuration.")
-            self.configuration = {
-                "config_collider": self.configuration,
-                "config_mad": {},
-            }
-        self.configuration_str = yaml.dump(self.configuration)
+        if self.configuration is None:
+            self._raise_no_configuration_error()
 
         # Compute luminosity and filling schemes attributes
         self._load_configuration_luminosity()
@@ -92,17 +82,55 @@ class ColliderCheck:
         self.compute_separation_variables.cache_clear()
 
     @property
+    def type_particles(self):
+        if self._type_particles is not None:
+            if self._type_particles in ["proton", "lead"]:
+                return self._type_particles
+            else:
+                raise ValueError("type_particles must be either 'proton' or 'lead'.")
+
+        elif self.configuration is not None:
+            if (
+                "config_mad" not in self.configuration
+                or "ions" not in self.configuration["config_mad"]
+            ):
+                raise ValueError(
+                    "No type of particles provided by the user nor in the configuration. Please "
+                    "provide it."
+                )
+            if self.configuration["config_mad"]["ions"]:
+                self._type_particles = "lead"
+            else:
+                self._type_particles = "proton"
+            return self._type_particles
+        else:
+            raise ValueError(
+                "No type of particles provided by the user nor in the configuration. Please "
+                "provide it."
+            )
+
+    @property
+    def cross_section(self):
+        # Record cross-section correspondinlgy
+        if self.type_particles == "proton":
+            return 81e-27
+        elif self.type_particles == "lead":
+            return 281e-24
+        else:
+            raise ValueError("type_particles must be either 'proton' or 'lead'.")
+
+    @property
     def nemitt_x(self):
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
-        print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_x.")
+        logging.warning("No configuration provided. Using default value of 2.2e-6 for nemitt_x.")
         return 2.2e-6
 
     @property
     def nemitt_y(self):
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
-        print("Warning: no configuration provided. Using default value of 2.2e-6 for nemitt_y.")
+        logging.warning("No configuration provided. Using default value of 2.2e-6 for nemitt_y.")
         return 2.2e-6
 
     @property
@@ -111,16 +139,13 @@ class ColliderCheck:
             return self.configuration["config_collider"]["config_beambeam"][
                 "num_long_range_encounters_per_side"
             ]["ip1"]
-        print("Warning: no configuration provided. Using default value of 1 for n_lr_per_side.")
+        logging.warning("No configuration provided. Using default value of 16 for n_lr_per_side.")
         return 16
 
-    def _check_configuration(self):
-        if self.configuration is None:
-            raise ValueError(
-                "No configuration has been provided when instantiating the ColliderCheck object."
-            )
-
     def _load_configuration_luminosity(self):
+        if self.configuration is None:
+            self._raise_no_configuration_error()
+
         if (
             "final_num_particles_per_bunch"
             in self.configuration["config_collider"]["config_beambeam"]
@@ -137,7 +162,7 @@ class ColliderCheck:
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
     def _load_filling_scheme_arrays(self):
-        if self.path_filling_scheme is None:
+        if self.path_filling_scheme is None and self.configuration is not None:
             # Get the filling scheme path (should already be an absolute path)
             self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
                 "mask_with_filling_pattern"
@@ -167,6 +192,10 @@ class ColliderCheck:
                         "Filling scheme file could not be loaded from the path in the configuration"
                         " or locally."
                     )
+        elif self.path_filling_scheme is None:
+            raise ValueError(
+                "No filling scheme path provided, and no configuration to get it from."
+            )
 
         # Load the scheme (two boolean arrays representing the buckets in the two beams)
         with open(self.path_filling_scheme) as fid:
@@ -176,18 +205,41 @@ class ColliderCheck:
         self.array_b2 = np.array(filling_scheme["beam2"])
 
         # Get the bunches selected for tracking
-        self.i_bunch_b1 = self.configuration["config_collider"]["config_beambeam"][
-            "mask_with_filling_pattern"
-        ]["i_bunch_b1"]
-        self.i_bunch_b2 = self.configuration["config_collider"]["config_beambeam"][
-            "mask_with_filling_pattern"
-        ]["i_bunch_b2"]
+        self.i_bunch_b1 = None
+        self.i_bunch_b2 = None
+        if self.configuration is not None:
+            if (
+                "i_bunch_b1"
+                in self.configuration["config_collider"]["config_beambeam"][
+                    "mask_with_filling_pattern"
+                ]
+            ):
+                self.i_bunch_b1 = self.configuration["config_collider"]["config_beambeam"][
+                    "mask_with_filling_pattern"
+                ]["i_bunch_b1"]
+            if (
+                "i_bunch_b2"
+                in self.configuration["config_collider"]["config_beambeam"][
+                    "mask_with_filling_pattern"
+                ]
+            ):
+                self.i_bunch_b2 = self.configuration["config_collider"]["config_beambeam"][
+                    "mask_with_filling_pattern"
+                ]["i_bunch_b2"]
+
+        if self.i_bunch_b1 is None:
+            logging.warning("No bunches selected for tracking in beam 1.")
+            self.i_bunch_b1 = np.where(self.array_b1)[0]
+        if self.i_bunch_b2 is None:
+            logging.warning("No bunches selected for tracking in beam 2.")
+            self.i_bunch_b2 = np.where(self.array_b2)[0]
 
     def return_number_of_collisions(self, IP=1):
         """Computes and returns the number of collisions at the requested IP."""
 
         # Ensure configuration is defined
-        self._check_configuration()
+        if self.configuration is None:
+            self._raise_no_configuration_error()
 
         # Assert that the arrays have the required length, and do the convolution
         assert len(self.array_b1) == len(self.array_b2) == 3564
@@ -205,7 +257,8 @@ class ColliderCheck:
         beam-beam) can be provided."""
 
         # Ensure configuration is defined
-        self._check_configuration()
+        if self.configuration is None:
+            self._raise_no_configuration_error()
 
         # Check crab cavities
         crab = False
@@ -273,7 +326,8 @@ class ColliderCheck:
     def return_polarity_ip_2_8(self):
         """Return the polarity (internal angle of the experiments) for IP2 and IP8."""
         # Ensure configuration is defined
-        self._check_configuration()
+        if self.configuration is None:
+            self._raise_no_configuration_error()
 
         polarity_alice = self.configuration["config_collider"]["config_knobs_and_tuning"][
             "knob_settings"
@@ -694,11 +748,14 @@ class ColliderCheck:
 # --- Main script
 # ==================================================================================================
 if __name__ == "__main__":
-    path_collider = "../test_data/collider.json"
-    collider = xt.Multiline.from_json(path_collider)
-    collider.build_trackers()
+    # Run collider check with config
+    # path_collider = "../test_data/collider.json"
+    # collider = xt.Multiline.from_json(path_collider)
+    # collider_check = ColliderCheck(collider=collider)
+    # print(collider_check.output_check_as_str(path_output="../output/check.txt"))
 
-    # Do collider check
+    # Run collider check without config
+    path_collider = "../test_data/collider_without_config.json"
+    collider = xt.Multiline.from_json(path_collider)
     collider_check = ColliderCheck(collider=collider)
-    print(collider_check.output_check_as_str(path_output="../output/check.txt"))
-    print(collider_check.output_check_as_str(path_output="../output/check.txt"))
+    print(collider_check.output_check_as_str(path_output="../output/check_without_config.txt"))

@@ -13,7 +13,19 @@ classifiers = [
 ]
 keywords = ["xsuite", "accelerator", "collider"]
 
-dependencies = []
+dependencies = [
+    "matplotlib>=3.9.2",
+    "pyyaml>=6.0.2",
+    "xsuite>=0.19.2",
+]
 
 [project.urls]
 Homepage = "https://github.com/ColasDroin/collider_check"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+]
+
+[tool.setuptools]
+include-package-data = false

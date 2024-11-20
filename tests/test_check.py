@@ -1,23 +1,23 @@
-"""A minimal set of unit tests to ensure no bug is raised when calling any (public) function of the 
-package. This is not meant to be an exhaustive test of the package (the behaviour of each function 
+"""A minimal set of unit tests to ensure no bug is raised when calling any (public) function of the
+package. This is not meant to be an exhaustive test of the package (the behaviour of each function
 is not tested under a large variety of inputs)."""
 
 # ==================================================================================================
 # --- Imports
 # ==================================================================================================
 # Imports from the standard library
-import pytest
-import numpy as np
-import sys
-import yaml
 import copy
+
+import numpy as np
 import pandas as pd
+import pytest
 
 # Third party imports
 import xtrack as xt
+import yaml
 
 # Import the module to test
-from src.collider_check import ColliderCheck
+from collider_check import ColliderCheck
 
 # ==================================================================================================
 # --- Script to load (heavy) data
