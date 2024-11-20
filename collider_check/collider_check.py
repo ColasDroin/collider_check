@@ -6,9 +6,11 @@ import logging
 import os
 from functools import lru_cache
 from importlib.resources import files
+from typing import Any, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import xtrack as xt
 from scipy import constants
 
@@ -17,9 +19,70 @@ from scipy import constants
 # --- Class definition
 # ==================================================================================================
 class ColliderCheck:
-    def __init__(self, collider, path_filling_scheme=None, type_particles=None):
-        """Initialize the ColliderCheck class directly from a collider, potentially embedding a
-        configuration file."""
+    """
+    ColliderCheck class for analyzing collider configurations and computing various collider observables.
+
+    Attributes:
+        energy (float): Beam energy in GeV.
+        tw_b1 (pd.DataFrame): Twiss parameters for beam 1.
+        sv_b1 (pd.DataFrame): Survey data for beam 1.
+        tw_b2 (pd.DataFrame): Twiss parameters for beam 2.
+        sv_b2 (pd.DataFrame): Survey data for beam 2.
+        df_tw_b1 (pd.DataFrame): Twiss parameters for beam 1 in pandas DataFrame format.
+        df_sv_b1 (pd.DataFrame): Survey data for beam 1 in pandas DataFrame format.
+        df_tw_b2 (pd.DataFrame): Twiss parameters for beam 2 in pandas DataFrame format.
+        df_sv_b2 (pd.DataFrame): Survey data for beam 2 in pandas DataFrame format.
+        dic_survey_per_ip (Dict[str, Dict]): Dictionary to store survey data per interaction point.
+
+    Methods:
+        configuration: Property to get and set the configuration dictionary.
+        type_particles: Property to get the type of particles.
+        cross_section: Property to get the cross-section based on the type of particles.
+        nemitt_x: Property to get the normalized emittance in x.
+        nemitt_y: Property to get the normalized emittance in y.
+        n_lr_per_side: Property to get the number of long-range encounters per side.
+        return_number_of_collisions(IP: int = 1) -> int: Computes and returns the number of
+            collisions at the requested IP.
+        return_luminosity(IP: int = 1) -> float: Computes and returns the luminosity at the
+            requested IP.
+        return_twiss_at_ip(beam: int = 1, ip: int = 1) -> pd.DataFrame: Returns the twiss
+            parameters, position, and angle at the requested IP.
+        return_tune_and_chromaticity(beam: int = 1) -> Tuple[float, float, float, float]: Returns
+            the tune and chromaticity for the requested beam.
+        return_linear_coupling() -> Tuple[float, float]: Returns the linear coupling for the two
+            beams.
+        return_momentum_compaction_factor() -> Tuple[float, float]: Returns the momentum compaction
+            factor for the two beams.
+        return_polarity_ip_2_8() -> Tuple[float, float]: Returns the polarity (internal angle of
+            the experiments) for IP2 and IP8.
+        compute_separation_variables(ip: str = "ip1", beam_weak: str = "b1") -> Dict[str, Any]:
+            Computes all the variables needed to compute the separation at the requested IP, in a
+                weak-strong setting.
+        return_dic_position_all_ips() -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]: Computes all
+            the variables needed to determine the position of the beam in all IRs.
+        plot_orbits(ip: str = "ip1", beam_weak: str = "b1") -> None: Plots the beams orbits at the
+            requested IP.
+        plot_separation(ip: str = "ip1", beam_weak: str = "b1") -> None: Plots the normalized
+            separation at the requested IP.
+        output_check_as_str(path_output: Optional[str] = None) -> str: Summarizes the collider
+            observables in a string, and optionally writes to a file.
+    """
+
+    def __init__(
+        self,
+        collider: xt.Multiline,
+        path_filling_scheme: Optional[str] = None,
+        type_particles: Optional[str] = None,
+    ) -> None:
+        """
+        Initialize the ColliderCheck class directly from a collider, potentially embedding a
+        configuration file.
+
+        Args:
+            collider (xt.Multiline): The collider object.
+            path_filling_scheme (Optional[str]): Path to the filling scheme file.
+            type_particles (Optional[str]): Type of particles ('proton' or 'lead').
+        """
 
         # Store the collider
         self.collider = collider
@@ -47,9 +110,14 @@ class ColliderCheck:
         self.dic_survey_per_ip = {"lhcb1": {}, "lhcb2": {}}
 
     @property
-    def configuration(self):
-        """Loads the configuration, as well as the luminosity and filling scheme arrays, if they're
-        not already loaded."""
+    def configuration(self) -> Optional[Dict]:
+        """
+        Loads the configuration, as well as the luminosity and filling scheme arrays, if they're not
+        already loaded.
+
+        Returns:
+            Optional[Dict]: The configuration dictionary.
+        """
 
         if self._configuration is not None:
             return self._configuration
@@ -60,17 +128,24 @@ class ColliderCheck:
         return self._configuration
 
     @configuration.setter
-    def configuration(self, configuration_dict):
-        """This function is used to update the configuration, and the attributes that depend on it."""
+    def configuration(self, configuration_dict: Dict) -> None:
+        """
+        This function is used to update the configuration, and the attributes that depend on it.
+
+        Args:
+            configuration_dict (Dict): The new configuration dictionary.
+        """
         self._configuration = configuration_dict
         self._update_attributes_configuration()
 
-    def _raise_no_configuration_error(self):
+    def _raise_no_configuration_error(self) -> None:
+        """Raises an error when no configuration is provided."""
         raise ValueError(
             "No configuration has been provided when instantiating the ColliderCheck object."
         )
 
-    def _update_attributes_configuration(self):
+    def _update_attributes_configuration(self) -> None:
+        """Updates attributes based on the configuration."""
         if self.configuration is None:
             self._raise_no_configuration_error()
 
@@ -82,7 +157,13 @@ class ColliderCheck:
         self.compute_separation_variables.cache_clear()
 
     @property
-    def type_particles(self):
+    def type_particles(self) -> str:
+        """
+        Returns the type of particles.
+
+        Returns:
+            str: The type of particles ('proton' or 'lead').
+        """
         if self._type_particles is not None:
             if self._type_particles in ["proton", "lead"]:
                 return self._type_particles
@@ -110,7 +191,13 @@ class ColliderCheck:
             )
 
     @property
-    def cross_section(self):
+    def cross_section(self) -> float:
+        """
+        Returns the cross-section based on the type of particles.
+
+        Returns:
+            float: The cross-section value.
+        """
         # Record cross-section correspondinlgy
         if self.type_particles == "proton":
             return 81e-27
@@ -120,21 +207,40 @@ class ColliderCheck:
             raise ValueError("type_particles must be either 'proton' or 'lead'.")
 
     @property
-    def nemitt_x(self):
+    def nemitt_x(self) -> float:
+        """
+        Returns the normalized emittance in x.
+
+        Returns:
+            float: The normalized emittance in x.
+        """
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_x"]
         logging.warning("No configuration provided. Using default value of 2.2e-6 for nemitt_x.")
         return 2.2e-6
 
     @property
-    def nemitt_y(self):
+    def nemitt_y(self) -> float:
+        """
+        Returns the normalized emittance in y.
+
+        Returns:
+            float: The normalized emittance in y.
+        """
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"]["nemitt_y"]
         logging.warning("No configuration provided. Using default value of 2.2e-6 for nemitt_y.")
         return 2.2e-6
 
     @property
-    def n_lr_per_side(self):
+    def n_lr_per_side(self) -> int:
+        """
+        Returns the number of long-range encounters per side.
+
+        Returns:
+            int: The number of long-range encounters per side.
+        """
+
         if self.configuration is not None:
             return self.configuration["config_collider"]["config_beambeam"][
                 "num_long_range_encounters_per_side"
@@ -142,7 +248,8 @@ class ColliderCheck:
         logging.warning("No configuration provided. Using default value of 16 for n_lr_per_side.")
         return 16
 
-    def _load_configuration_luminosity(self):
+    def _load_configuration_luminosity(self) -> None:
+        """Loads luminosity-related configuration parameters."""
         if self.configuration is None:
             self._raise_no_configuration_error()
 
@@ -161,7 +268,8 @@ class ColliderCheck:
             )
         self.sigma_z = self.configuration["config_collider"]["config_beambeam"]["sigma_z"]
 
-    def _load_filling_scheme_arrays(self):
+    def _load_filling_scheme_arrays(self) -> None:
+        """Loads the filling scheme arrays."""
         if self.path_filling_scheme is None and self.configuration is not None:
             # Get the filling scheme path (should already be an absolute path)
             self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
@@ -234,8 +342,16 @@ class ColliderCheck:
             logging.warning("No bunches selected for tracking in beam 2.")
             self.i_bunch_b2 = np.where(self.array_b2)[0]
 
-    def return_number_of_collisions(self, IP=1):
-        """Computes and returns the number of collisions at the requested IP."""
+    def return_number_of_collisions(self, IP: int = 1) -> int:
+        """
+        Computes and returns the number of collisions at the requested IP.
+
+        Args:
+            IP (int): The interaction point number (1, 2, 5, or 8).
+
+        Returns:
+            int: The number of collisions at the specified IP.
+        """
 
         # Ensure configuration is defined
         if self.configuration is None:
@@ -243,18 +359,25 @@ class ColliderCheck:
 
         # Assert that the arrays have the required length, and do the convolution
         assert len(self.array_b1) == len(self.array_b2) == 3564
-        if IP in [1, 5]:
-            return self.array_b1 @ self.array_b2
+        if IP in {1, 5}:
+            return int(self.array_b1 @ self.array_b2)
         elif IP == 2:
-            return np.roll(self.array_b1, 891) @ self.array_b2
+            return int(np.roll(self.array_b1, 891) @ self.array_b2)
         elif IP == 8:
-            return np.roll(self.array_b1, 2670) @ self.array_b2
+            return int(np.roll(self.array_b1, 2670) @ self.array_b2)
         else:
             raise ValueError("IP must be either 1, 2, 5 or 8.")
 
-    def return_luminosity(self, IP=1):
-        """Computes and returns the luminosity at the requested IP. External twiss (e.g. from before
-        beam-beam) can be provided."""
+    def return_luminosity(self, IP: int = 1) -> float:
+        """
+        Computes and returns the luminosity at the requested IP.
+
+        Args:
+            IP (int): The interaction point number (1, 2, 5, or 8).
+
+        Returns:
+            float: The luminosity at the specified IP.
+        """
 
         # Ensure configuration is defined
         if self.configuration is None:
@@ -289,7 +412,17 @@ class ColliderCheck:
             crab=crab,
         )
 
-    def return_twiss_at_ip(self, beam=1, ip=1):
+    def return_twiss_at_ip(self, beam: int = 1, ip: int = 1) -> pd.DataFrame:
+        """
+        Returns the twiss parameters, position and angle at the requested IP.
+
+        Args:
+            beam (int): The beam number (1 or 2).
+            ip (int): The interaction point number.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing twiss parameters at the specified IP.
+        """
         """Returns the twiss parameters, position and angle at the requested IP."""
         if beam == 1:
             return (
@@ -306,8 +439,17 @@ class ColliderCheck:
         else:
             raise ValueError("Beam must be either 1 or 2.")
 
-    def return_tune_and_chromaticity(self, beam=1):
-        """Returns the tune and chromaticity for the requested beam."""
+    def return_tune_and_chromaticity(self, beam: int = 1) -> Tuple[float, float, float, float]:
+        """
+        Returns the tune and chromaticity for the requested beam.
+
+        Args:
+            beam (int): The beam number (1 or 2).
+
+        Returns:
+            Tuple[float, float, float, float]: A tuple containing (qx, dqx, qy, dqy).
+        """
+
         if beam == 1:
             return self.tw_b1["qx"], self.tw_b1["dqx"], self.tw_b1["qy"], self.tw_b1["dqy"]
         elif beam == 2:
@@ -315,16 +457,32 @@ class ColliderCheck:
         else:
             raise ValueError("Beam must be either 1 or 2.")
 
-    def return_linear_coupling(self):
-        """Returns the linear coupling for the two beams."""
+    def return_linear_coupling(self) -> Tuple[float, float]:
+        """
+        Returns the linear coupling for the two beams.
+
+        Returns:
+            Tuple[float, float]: A tuple containing the linear coupling for beam 1 and beam 2.
+        """
         return self.tw_b1["c_minus"], self.tw_b2["c_minus"]
 
-    def return_momentum_compaction_factor(self):
-        """Returns the momentum compaction factor for the two beams."""
+    def return_momentum_compaction_factor(self) -> Tuple[float, float]:
+        """
+        Returns the momentum compaction factor for the two beams.
+
+        Returns:
+            Tuple[float, float]: A tuple containing the momentum compaction factor for beam 1 and
+                beam 2.
+        """
         return self.tw_b1["momentum_compaction_factor"], self.tw_b2["momentum_compaction_factor"]
 
-    def return_polarity_ip_2_8(self):
-        """Return the polarity (internal angle of the experiments) for IP2 and IP8."""
+    def return_polarity_ip_2_8(self) -> Tuple[float, float]:
+        """
+        Return the polarity (internal angle of the experiments) for IP2 and IP8.
+
+        Returns:
+            Tuple[float, float]: A tuple containing the polarity for IP2 and IP8.
+        """
         # Ensure configuration is defined
         if self.configuration is None:
             self._raise_no_configuration_error()
@@ -338,7 +496,17 @@ class ColliderCheck:
 
         return polarity_alice, polarity_lhcb
 
-    def _compute_ip_specific_separation(self, ip="ip1", beam_weak="b1"):
+    def _compute_ip_specific_separation(self, ip: str = "ip1", beam_weak: str = "b1") -> Tuple:
+        """
+        Compute IP-specific separation parameters.
+
+        Args:
+            ip (str): The interaction point name.
+            beam_weak (str): The weak beam designation.
+
+        Returns:
+            Tuple: A tuple containing various separation parameters.
+        """
         # Compute survey at IP if needed
         if ip not in self.dic_survey_per_ip["lhcb1"] or ip not in self.dic_survey_per_ip["lhcb2"]:
             self.dic_survey_per_ip["lhcb1"][ip] = self.collider["lhcb1"].survey(element0=ip)
@@ -402,7 +570,14 @@ class ColliderCheck:
             l_scale_strength,
         )
 
-    def _compute_emittances_separation(self):
+    def _compute_emittances_separation(self) -> Tuple[float, float, float, float, float, float]:
+        """
+        Compute emittances and separation parameters.
+
+        Returns:
+            Tuple[float, float, float, float, float, float]: A tuple containing gamma_rel, beta_rel,
+                and emittances.
+        """
         if self.type_particles == "proton":
             # gamma relativistic of a proton
             gamma_rel = self.energy / (
@@ -434,16 +609,36 @@ class ColliderCheck:
 
     def _compute_ip_specific_normalized_separation(
         self,
-        twiss_filtered,
-        beam_weak,
-        beam_strong,
-        emittance_strong_x,
-        emittance_strong_y,
-        emittance_weak_x,
-        emittance_weak_y,
-        d_x_weak_strong_in_meter,
-        d_y_weak_strong_in_meter,
-    ):
+        twiss_filtered: Dict[str, pd.DataFrame],
+        beam_weak: str,
+        beam_strong: str,
+        emittance_strong_x: float,
+        emittance_strong_y: float,
+        emittance_weak_x: float,
+        emittance_weak_y: float,
+        d_x_weak_strong_in_meter: np.ndarray,
+        d_y_weak_strong_in_meter: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
+        """
+        Compute IP-specific normalized separation parameters.
+
+        Args:
+            twiss_filtered (Dict[str, pd.DataFrame]): Filtered twiss data for both beams.
+            beam_weak (str): The weak beam designation.
+            beam_strong (str): The strong beam designation.
+            emittance_strong_x (float): Emittance in x for the strong beam.
+            emittance_strong_y (float): Emittance in y for the strong beam.
+            emittance_weak_x (float): Emittance in x for the weak beam.
+            emittance_weak_y (float): Emittance in y for the weak beam.
+            d_x_weak_strong_in_meter (np.ndarray): Separation in x between weak and strong beams in
+                meters.
+            d_y_weak_strong_in_meter (np.ndarray): Separation in y between weak and strong beams in
+                meters.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
+                A tuple containing the separation parameters.
+        """
         # Size of the strong beams
         sigma_x_strong = np.sqrt(twiss_filtered[beam_strong]["betx"] * emittance_strong_x)
         sigma_y_strong = np.sqrt(twiss_filtered[beam_strong]["bety"] * emittance_strong_y)
@@ -476,10 +671,19 @@ class ColliderCheck:
 
     # Cache function to gain time
     @lru_cache(maxsize=20)
-    def compute_separation_variables(self, ip="ip1", beam_weak="b1"):
-        """This function computes all the variables needed to compute the separation at the
-        requested IP, in a weak-strong setting. The variables are stored and returned in a
-        dictionnary.
+    def compute_separation_variables(
+        self, ip: str = "ip1", beam_weak: str = "b1"
+    ) -> Dict[str, Any]:
+        """
+        Computes all the variables needed to compute the separation at the requested IP, in a
+        weak-strong setting. The variables are stored and returned in a dictionary.
+
+        Args:
+            ip (str): The interaction point name.
+            beam_weak (str): The weak beam designation.
+
+        Returns:
+            Dict[str, any]: A dictionary containing the computed separation variables.
         """
 
         # Get variables specific to the requested IP
@@ -552,13 +756,19 @@ class ColliderCheck:
             "l_scale_strength": l_scale_strength,
         }
 
-    def return_dic_position_all_ips(self):
-        """This function computes all the variables needed to compute the position of the beam in
-        all IRs. The variables are stored and returne in a dictionnary. The extreme positions are:
+    def return_dic_position_all_ips(self) -> Dict[str, Dict[str, Dict[str, pd.DataFrame]]]:
+        """
+        Computes all the variables needed to determine the position of the beam in all IRs. The
+        variables are stored and returned in a dictionary. The extreme positions are:
+
         IP1 : mqy.4l1.b1 to mqy.4r1.b1
         IP2 : mqy.b5l2.b1 to mqy.b4r2.b1
         IP5 : mqy.4l5.b1 to mqy.4r5.b1
         IP8 : mqy.b4l8.b1 to mqy.b4r8.b1
+
+        Returns:
+            Dict[str, Dict[str, Dict[str, pd.DataFrame]]]: A dictionary containing the positions
+            of the beam in all IRs for both beams.
         """
         dic_larger_separation_ip = {"lhcb1": {"sv": {}, "tw": {}}, "lhcb2": {"sv": {}, "tw": {}}}
         for beam in ("lhcb1", "lhcb2"):
@@ -644,8 +854,14 @@ class ColliderCheck:
 
         return dic_larger_separation_ip
 
-    def plot_orbits(self, ip="ip1", beam_weak="b1"):
-        """Plots the beams orbits at the requested IP."""
+    def plot_orbits(self, ip: str = "ip1", beam_weak: str = "b1") -> None:
+        """
+        Plots the beams orbits at the requested IP.
+
+        Args:
+            ip (str): The interaction point name.
+            beam_weak (str): The weak beam designation.
+        """
 
         # Get separation variables
         ip_dict = self.compute_separation_variables(ip=ip, beam_weak=beam_weak)
@@ -666,8 +882,14 @@ class ColliderCheck:
         plt.grid(True)
         plt.show()
 
-    def plot_separation(self, ip="ip1", beam_weak="b1"):
-        """Plots the normalized separation at the requested IP."""
+    def plot_separation(self, ip: str = "ip1", beam_weak: str = "b1") -> None:
+        """
+        Plots the normalized separation at the requested IP.
+
+        Args:
+            ip (str): The interaction point name.
+            beam_weak (str): The weak beam designation.
+        """
         # Get separation variables
         ip_dict = self.compute_separation_variables(ip=ip, beam_weak=beam_weak)
 
@@ -682,8 +904,17 @@ class ColliderCheck:
         plt.grid(True)
         plt.show()
 
-    def output_check_as_str(self, path_output=None):
-        """Summarizes the collider observables in a string, and optionally to a file."""
+    def output_check_as_str(self, path_output: Optional[str] = None) -> str:
+        """
+        Summarizes the collider observables in a string, and optionally writes to a file.
+
+        Args:
+            path_output (Optional[str]): The path to the output file. If None, the output is not
+            written to a file.
+
+        Returns:
+            str: A string summarizing the collider observables.
+        """
         # Check tune and chromaticity
         qx_b1, dqx_b1, qy_b1, dqy_b1 = self.return_tune_and_chromaticity(beam=1)
         qx_b2, dqx_b2, qy_b2, dqy_b2 = self.return_tune_and_chromaticity(beam=2)
@@ -749,10 +980,10 @@ class ColliderCheck:
 # ==================================================================================================
 if __name__ == "__main__":
     # Run collider check with config
-    # path_collider = "../test_data/collider.json"
-    # collider = xt.Multiline.from_json(path_collider)
-    # collider_check = ColliderCheck(collider=collider)
-    # print(collider_check.output_check_as_str(path_output="../output/check.txt"))
+    path_collider = "../test_data/collider.json"
+    collider = xt.Multiline.from_json(path_collider)
+    collider_check = ColliderCheck(collider=collider)
+    print(collider_check.output_check_as_str(path_output="../output/check.txt"))
 
     # Run collider check without config
     path_collider = "../test_data/collider_without_config.json"
