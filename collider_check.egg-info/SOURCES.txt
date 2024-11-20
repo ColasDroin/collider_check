@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+collider_check/__init__.py
+collider_check/collider_check.py
+collider_check/utils.py
+collider_check.egg-info/PKG-INFO
+collider_check.egg-info/SOURCES.txt
+collider_check.egg-info/dependency_links.txt
+collider_check.egg-info/requires.txt
+collider_check.egg-info/top_level.txt
+tests/test_check.py

@@ -12,7 +12,6 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = ["xsuite", "accelerator", "collider"]
-
 dependencies = [
     "matplotlib>=3.9.2",
     "numpy>=2.1.3",
@@ -32,3 +31,8 @@ dev = [
 
 [tool.setuptools]
 include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["collider_check"]
+exclude = ["output", "test_data", "test"]
+
