@@ -1,10 +1,16 @@
-# Package version
-__version__ = "0.2.7"
+# ==================================================================================================
+# --- Imports
+# ==================================================================================================
 
+# Third party imports
 import xtrack as xt
 
-# Import ColliderCheck class in the namespace
+# Local imports
 from .collider_check import ColliderCheck
+
+# ==================================================================================================
+# --- Functions
+# ==================================================================================================
 
 
 def from_json(path):
@@ -48,7 +54,7 @@ def from_collider(collider):
     # Build collider_check object
     try:
         collider.build_trackers()
-    except:
+    except Exception:
         "No trackers to build."
 
     return ColliderCheck(collider=collider)

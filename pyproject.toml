@@ -1,15 +1,9 @@
-[build-system]
-requires      = ["setuptools>=61.2", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-include-package-data = false
-
 [project]
 name = "collider-check"
-version = "0.2.7"
+version = "0.2.8"
 description = "A small package that provides functions to check the observables in a collider, using a collider built with Xsuite."
 readme = "README.md"
+requires-python = ">=3.10, <3.13"
 authors = [{ name = "Colas Droin", email = "colas.noe.droin@cern.ch" }]
 license = { file = "LICENSE" }
 classifiers = [
@@ -18,17 +12,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = ["xsuite", "accelerator", "collider"]
-dependencies = [
-    "numpy",
-    "xtrack",
-    "pyyaml",
-    "scipy",
-    "matplotlib",
-]
-requires-python = ">=3.10"
 
-[project.optional-dependencies]
-dev = ["black", "pytest", "pandas"]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/ColasDroin/collider_check"
