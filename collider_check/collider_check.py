@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xtrack as xt
+import yaml
 from scipy import constants
 
 
@@ -146,8 +147,12 @@ class ColliderCheck:
 
     def _update_attributes_configuration(self) -> None:
         """Updates attributes based on the configuration."""
+
         if self.configuration is None:
             self._raise_no_configuration_error()
+
+        # Store the configuration as a string
+        self.configuration_str = yaml.dump(self.configuration)
 
         # Compute luminosity and filling schemes attributes
         self._load_configuration_luminosity()
