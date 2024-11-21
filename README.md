@@ -1,6 +1,13 @@
 # Collider-check Package
 
-
+<p align="center">
+    <img src="https://img.shields.io/pypi/v/collider-check" alt="PyPI - Version">
+    <img src="https://img.shields.io/github/commits-since/ColasDroin/collider_check/latest" alt="GitHub commits since latest release">
+    <img src="https://img.shields.io/github/actions/workflow/status/ColasDroin/collider_check/ci_tests.yaml?label=Tests" alt="GitHub Actions Workflow Status">
+    <img src="https://img.shields.io/github/license/ColasDroin/collider_check" alt="GitHub License">    
+    <img src="https://img.shields.io/pypi/pyversions/collider-check" alt="PyPI - Python Version">
+    <img src="https://img.shields.io/badge/Built%20with%20uv-8A2BE2">
+</p>
 
 ## Overview
 

@@ -281,12 +281,21 @@ class ColliderCheck:
                     "No filling scheme path provided, and no configuration to get it from."
                 )
 
-            else:
-                # Get the filling scheme path (should already be an absolute path)
-                self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
-                    "mask_with_filling_pattern"
-                ]["pattern_fname"]
+            # Get the filling scheme path (should already be an absolute path)
+            self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
+                "mask_with_filling_pattern"
+            ]["pattern_fname"]
 
+            # Check if the file exists
+            if not os.path.exists(self.path_filling_scheme):
+                # Check locally
+                self.path_filling_scheme = "../test_data/" + self.path_filling_scheme.split("/")[-1]
+
+                if not os.path.exists(self.path_filling_scheme):
+                    raise FileNotFoundError(
+                        f"File {self.path_filling_scheme} not found. Please provide a valid "
+                        "path to the filling scheme."
+                    )
         # Load the scheme (two boolean arrays representing the buckets in the two beams)
         with open(self.path_filling_scheme) as fid:
             filling_scheme = json.load(fid)
