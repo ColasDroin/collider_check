@@ -289,7 +289,10 @@ class ColliderCheck:
             # Check if the file exists
             if not os.path.exists(self.path_filling_scheme):
                 # Check locally
-                self.path_filling_scheme = "../test_data/" + self.path_filling_scheme.split("/")[-1]
+
+                # Get local path
+                local_path = files("collider_check").joinpath("test_data")
+                self.path_filling_scheme = str(local_path / self.path_filling_scheme)
 
                 if not os.path.exists(self.path_filling_scheme):
                     raise FileNotFoundError(
