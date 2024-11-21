@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: collider-check
-Version: 0.3.0
+Version: 0.3.1
 Summary: A small package that provides functions to check the observables in a collider, using a collider built with Xsuite.
 Author-email: Colas Droin <colas.noe.droin@cern.ch>
 License: MIT License
@@ -40,7 +40,16 @@ Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: scipy>=1.14.1
 Requires-Dist: xsuite>=0.19.2
 
-# Collider-check Package
+# collider-check Package
+
+<p align="center">
+    <img src="https://img.shields.io/pypi/v/collider-check" alt="PyPI - Version">
+    <img src="https://img.shields.io/github/commits-since/ColasDroin/collider_check/latest" alt="GitHub commits since latest release">
+    <img src="https://img.shields.io/github/actions/workflow/status/ColasDroin/collider_check/tests.yaml?label=Tests" alt="GitHub Actions Workflow Status">
+    <img src="https://img.shields.io/github/license/ColasDroin/collider_check" alt="GitHub License">    
+    <img src="https://img.shields.io/pypi/pyversions/collider-check" alt="PyPI - Python Version">
+    <img src="https://img.shields.io/badge/Built%20with%20uv-8A2BE2">
+</p>
 
 ## Overview
 
@@ -68,3 +77,7 @@ To get a quick summary of the collider observables, use:
 ```python
 check.output_check_as_str('output.txt')
 ```
+
+## License
+
+This package is distributed under the MIT License. See [LICENSE](LICENSE) for more information.
