@@ -292,9 +292,15 @@ class ColliderCheck:
 
                 # Get parent of local path
                 local_path = pathlib.Path(__file__).parent.parent.absolute()
+
+                # Name folder data
+                data_folder = "test_data"
+
                 # Get the last part of the path filling scheme
                 name_filling_scheme = self.path_filling_scheme.split("/")[-1]
-                self.path_filling_scheme = os.path.join(local_path, name_filling_scheme)
+                self.path_filling_scheme = os.path.join(
+                    local_path, data_folder, name_filling_scheme
+                )
 
                 if not os.path.exists(self.path_filling_scheme):
                     raise FileNotFoundError(
