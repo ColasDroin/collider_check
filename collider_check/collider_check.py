@@ -4,8 +4,8 @@
 import json
 import logging
 import os
+import pathlib
 from functools import lru_cache
-from importlib.resources import files
 from typing import Any, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
@@ -290,9 +290,11 @@ class ColliderCheck:
             if not os.path.exists(self.path_filling_scheme):
                 # Check locally
 
-                # Get local path
-                local_path = files("collider_check").joinpath("test_data")
-                self.path_filling_scheme = str(local_path / self.path_filling_scheme)
+                # Get parent of local path
+                local_path = pathlib.Path(__file__).parent.parent.absolute()
+                # Get the last part of the path filling scheme
+                name_filling_scheme = self.path_filling_scheme.split("/")[-1]
+                self.path_filling_scheme = os.path.join(local_path, name_filling_scheme)
 
                 if not os.path.exists(self.path_filling_scheme):
                     raise FileNotFoundError(
