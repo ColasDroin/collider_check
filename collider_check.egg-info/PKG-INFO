@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: collider-check
-Version: 0.3.1
+Version: 0.3.2
 Summary: A small package that provides functions to check the observables in a collider, using a collider built with Xsuite.
 Author-email: Colas Droin <colas.noe.droin@cern.ch>
 License: MIT License
