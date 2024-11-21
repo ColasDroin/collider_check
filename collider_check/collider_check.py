@@ -110,6 +110,10 @@ class ColliderCheck:
         # Variables used to compute the separation (computed on the fly)
         self.dic_survey_per_ip = {"lhcb1": {}, "lhcb2": {}}
 
+        # Try to load arrays for filling scheme
+        if self.path_filling_scheme is None and self.configuration is not None:
+            self._load_filling_scheme_arrays()
+
     @property
     def configuration(self) -> Optional[Dict]:
         """
@@ -275,12 +279,7 @@ class ColliderCheck:
 
     def _load_filling_scheme_arrays(self) -> None:
         """Loads the filling scheme arrays."""
-        if self.path_filling_scheme is None:
-            if self.configuration is None:
-                raise ValueError(
-                    "No filling scheme path provided, and no configuration to get it from."
-                )
-
+        if self.path_filling_scheme is None and self.configuration is not None:
             # Get the filling scheme path (should already be an absolute path)
             self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
                 "mask_with_filling_pattern"
@@ -288,8 +287,6 @@ class ColliderCheck:
 
             # Check if the file exists
             if not os.path.exists(self.path_filling_scheme):
-                # Check locally
-
                 # Get parent of local path
                 local_path = pathlib.Path(__file__).parent.parent.absolute()
 
@@ -307,6 +304,11 @@ class ColliderCheck:
                         f"File {self.path_filling_scheme} not found. Please provide a valid "
                         "path to the filling scheme."
                     )
+
+        elif self.path_filling_scheme is None:
+            raise ValueError(
+                "No filling scheme path provided, and no configuration to get it from."
+            )
         # Load the scheme (two boolean arrays representing the buckets in the two beams)
         with open(self.path_filling_scheme) as fid:
             filling_scheme = json.load(fid)
@@ -338,11 +340,11 @@ class ColliderCheck:
                 ]["i_bunch_b2"]
 
         if self.i_bunch_b1 is None:
-            logging.warning("No bunches selected for tracking in beam 1.")
-            self.i_bunch_b1 = np.where(self.array_b1)[0]
+            logging.warning("No bunches selected for tracking in beam 1. Using first bunch.")
+            self.i_bunch_b1 = np.where(self.array_b1)[0][0]
         if self.i_bunch_b2 is None:
-            logging.warning("No bunches selected for tracking in beam 2.")
-            self.i_bunch_b2 = np.where(self.array_b2)[0]
+            logging.warning("No bunches selected for tracking in beam 2. Using first bunch.")
+            self.i_bunch_b2 = np.where(self.array_b2)[0][0]
 
     def return_number_of_collisions(self, IP: int = 1) -> int:
         """
