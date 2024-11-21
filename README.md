@@ -28,3 +28,7 @@ To get a quick summary of the collider observables, use:
 ```python
 check.output_check_as_str('output.txt')
 ```
+
+## License
+
+This package is distributed under the MIT License. See [LICENSE](LICENSE) for more information.

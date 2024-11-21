@@ -275,40 +275,17 @@ class ColliderCheck:
 
     def _load_filling_scheme_arrays(self) -> None:
         """Loads the filling scheme arrays."""
-        if self.path_filling_scheme is None and self.configuration is not None:
-            # Get the filling scheme path (should already be an absolute path)
-            self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
-                "mask_with_filling_pattern"
-            ]["pattern_fname"]
+        if self.path_filling_scheme is None:
+            if self.configuration is None:
+                raise ValueError(
+                    "No filling scheme path provided, and no configuration to get it from."
+                )
 
-            # Check if filling scheme file exists, and replace it by local if not
-            if not os.path.isfile(self.path_filling_scheme):
-                try:
-                    package_path = str(files("collider_dashboard"))
-                except NameError as e:
-                    raise ValueError(
-                        "collider_dashboard not installed... Filling scheme file could not be"
-                        " loaded from the path in the configuration or locally."
-                    ) from e
-                if os.path.isfile(
-                    f"{package_path}/data/" + self.path_filling_scheme.split("/")[-1]
-                ):
-                    print(
-                        "Filling scheme file could not be loaded from the path in the"
-                        " configuration. Loading it locally."
-                    )
-                    self.path_filling_scheme = (
-                        f"{package_path}/data/" + self.path_filling_scheme.split("/")[-1]
-                    )
-                else:
-                    raise ValueError(
-                        "Filling scheme file could not be loaded from the path in the configuration"
-                        " or locally."
-                    )
-        elif self.path_filling_scheme is None:
-            raise ValueError(
-                "No filling scheme path provided, and no configuration to get it from."
-            )
+            else:
+                # Get the filling scheme path (should already be an absolute path)
+                self.path_filling_scheme = self.configuration["config_collider"]["config_beambeam"][
+                    "mask_with_filling_pattern"
+                ]["pattern_fname"]
 
         # Load the scheme (two boolean arrays representing the buckets in the two beams)
         with open(self.path_filling_scheme) as fid:
