@@ -1,4 +1,4 @@
-# Collider-check Package
+# collider-check Package
 
 <p align="center">
     <img src="https://img.shields.io/pypi/v/collider-check" alt="PyPI - Version">
